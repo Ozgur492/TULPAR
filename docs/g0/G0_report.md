@@ -11,7 +11,7 @@ Produced by `scripts/g0_checks.sh`; the raw evidence is written to `out/g0/` and
 | Compiler | GCC 13.3.0 (Ubuntu 24.04.5), C++23, CMake 3.28.3, Ninja |
 | Build profile | `default`, examples and tests enabled |
 | Machine | Claude Code cloud workspace, 2 cores, 7 GB RAM |
-| Repository commit | none yet: the code is not committed; the checks ran on the working tree |
+| Repository commit | `626affb` (first commit); the full check set was re-run on it on 23 November 2026 with the results below |
 | Scenario | UAV-1 and USV-1, all eight agent modules, 802.11n ad hoc at HtMcs0, skeleton beacon with seeded jitter, 60 s |
 
 ## Results
@@ -26,7 +26,7 @@ Produced by `scripts/g0_checks.sh`; the raw evidence is written to `out/g0/` and
 | Same run with both cores busy | RSD-SIM-01a (run part) | PASS | identical to the idle run |
 | Two processes with attacker label `none` and `UAV-1` | RSD-SIM-02b (hidden-label part) | PASS | agent logs identical (`c0fe145d...`); ground-truth logs differ (`d6537b08...`, `54746edb...`) |
 
-Each run produced 146 events (114 beacons sent, 14 received; trace hash `4b2524adf671d4b4`). The whole check set was repeated after a full rebuild of ns-3 and the module and gave the same SHA-256. Because a different run number changes the log, the identical logs under one seed show that the random streams, not their absence, are reproducible.
+Each run produced 146 events (114 beacons sent, 14 received; trace hash `4b2524adf671d4b4`). The whole check set was repeated after a full rebuild of ns-3 and the module, and again on commit `626affb`; both repetitions gave the same SHA-256. Because a different run number changes the log, the identical logs under one seed show that the random streams, not their absence, are reproducible.
 
 ## Not covered at this point
 
@@ -34,7 +34,7 @@ Each run produced 146 events (114 beacons sent, 14 received; trace hash `4b2524a
 - **SIMDIS gates I-00 to I-02:** they need the SIMDIS SDK 1.25 build and the bridge (owner: simulation infrastructure). The architecture assigns them to G0.
 - **Gate I-07, analysis part:** "identical analysis results" needs the analysis scripts, which do not exist yet; only the event logs were compared.
 - **RSD-SIM-01b:** the micro-benchmark delay table is Phase 1 work (TBR-01).
-- **CI and Docker:** `.github/workflows/ci.yml` and `docker/Dockerfile` have not run yet. The workspace has no Docker daemon and the repository is not on GitHub.
+- **CI and Docker:** `.github/workflows/ci.yml` and `docker/Dockerfile` have not run yet. The workspace has no Docker daemon, and the repository is not on GitHub yet; the first CI run will repeat these checks and keep the evidence as a workflow artifact.
 
 ## Proposed verification status after G0 review
 
