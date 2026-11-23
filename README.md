@@ -46,13 +46,13 @@ Each module is a separate static build target, so a module can use only what its
 
 | Member | Area |
 |---|---|
-| Özgür Can Güngör | Cryptography and local safety controller |
-| Çağlar Mesci | Simulation infrastructure, scenario controller and SIMDIS viewer; status summaries, backhaul profiles and lost-link rule |
-| Cemre Karabulut | Communication; gateways, receipts and jamming indicator |
-| Berkan Mursal | Observation fusion; distributed security with Berra |
-| Berra Senem Mıynat | Human oversight (operator commands); distributed security with Berkan |
+| Özgür Can Güngör | Cryptography, local safety controller and the per-group Verification Backlog |
+| Çağlar Mesci | Simulation infrastructure, scenario controller and SIMDIS viewer; status summaries, backhaul profiles, lost-link rule, the build map and post-mission analysis |
+| Cemre Karabulut | Communication; gateways, receipts, jamming indicator, ingress boundary and connectivity repair |
+| Berkan Mursal | Evidence store, observation fusion and distributed security |
+| Berra Senem Mıynat | Human oversight through operator commands; task allocation, support requests and group membership |
 
-The evidence store, mission management and most of the common-mode containment area have no owner yet (Jira TULPAR-31).
+Every Jira issue is assigned to one of them. Dependencies between owners follow the internal interfaces of RSD Table 4.25 and are recorded as Jira issue links.
 
 ## Roadmap
 

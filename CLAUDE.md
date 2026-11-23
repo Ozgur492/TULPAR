@@ -6,7 +6,7 @@ TULPAR is an ns-3 simulation of a distributed UAV-USV collective. Read this file
 
 - **Requirements:** `docs/rsd/TULPAR_RSD_v1.1.md` (RSD v1.1). Requirement identifiers (`RSD-XXX-NNa`) are stable and never renumbered. Where an architecture document differs from the RSD, the RSD governs.
 - **Work items:** Jira project `TULPAR` on `dasdas.atlassian.net`, through the Atlassian connector. Every code change belongs to one Jira issue.
-- **Backlog map:** `docs/backlog/TULPAR_Jira_Backlog.json` lists every issue with its Jira key (`TULPAR-n`), RSD identifier, planned gate, owner labels and acceptance criterion.
+- **Backlog map:** `docs/backlog/TULPAR_Jira_Backlog.json` lists every issue with its Jira key (`TULPAR-n`), RSD identifier, planned gate, owner labels, assignee and acceptance criterion, and the issue links: `Blocks` for dependencies between owners (RSD Table 4.25), `Relates` between a requirement and the gate tests, experiments, integration gates, scenarios and invariants its criterion names. Check the links of an issue before starting it.
 
 ## Repository layout
 
