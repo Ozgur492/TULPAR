@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static checks (RSD-SIM-01a, RSD-SIM-02a, MD5, MD9, MD19)
+        run: |
+          python3 tools/check_static.py --root .
+          python3 tools/test_check_static.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Code style (ns-3 .clang-format, clang-format 20)
+        run: |
+          python -m pip install "clang-format==20.1.8"
+          find module \( -name '*.h' -o -name '*.cc' \) -print0 | xargs -0 clang-format --dry-run --Werror
+
+  build-and-g0:
+    runs-on: ubuntu-24.04
+    needs: static-checks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain (Ubuntu 24.04, GCC 13, CMake, Ninja)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++-13 cmake ninja-build python3
+      - name: Cache ns-3.49 build
+        uses: actions/cache@v4
+        with:
+          path: external/ns-3
+          key: ns3-3.49-${{ runner.os }}-${{ hashFiles('scripts/bootstrap.sh') }}
+      - name: Bootstrap ns-3.49 with the TULPAR module
+        run: scripts/bootstrap.sh
+      - name: Build
+        run: scripts/build.sh
+      - name: Gate G0 checks
+        run: scripts/g0_checks.sh
+      - name: Upload G0 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g0-evidence
+          path: out/g0

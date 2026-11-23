@@ -1,0 +1,6 @@
+external/
+out/
+*.pyc
+__pycache__/
+.vscode/
+.idea/

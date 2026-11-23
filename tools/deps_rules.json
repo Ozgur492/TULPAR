@@ -1,0 +1,65 @@
+{
+  "description": "Dependency rules of the TULPAR agent, checked by tools/check_static.py. Sources: RSD v1.1 Section 2.3, Table 4.25 (internal interfaces) and Table 5.1 (MD1, MD5, MD9, MD14, MD19). Modules exchange data only through the interfaces of Table 4.25, which the agent root wires together; a module never includes another module's headers, except the services of M-CRY (I6).",
+  "parts": {
+    "common": "module/common",
+    "cry": "module/agent/cry",
+    "com": "module/agent/com",
+    "del": "module/agent/del",
+    "evs": "module/agent/evs",
+    "obs": "module/agent/obs",
+    "sec": "module/agent/sec",
+    "mis": "module/agent/mis",
+    "lsc": "module/agent/lsc",
+    "root": "module/agent/root",
+    "sim": "module/sim"
+  },
+  "agent_parts": ["common", "cry", "com", "del", "evs", "obs", "sec", "mis", "lsc", "root"],
+  "may_include": {
+    "common": ["common"],
+    "cry": ["common", "cry"],
+    "com": ["common", "cry", "com"],
+    "del": ["common", "cry", "del"],
+    "evs": ["common", "cry", "evs"],
+    "obs": ["common", "cry", "obs"],
+    "sec": ["common", "cry", "sec"],
+    "mis": ["common", "cry", "mis"],
+    "lsc": ["common", "lsc"],
+    "root": ["common", "cry", "com", "del", "evs", "obs", "sec", "mis", "lsc", "root"],
+    "sim": ["common", "root", "sim"]
+  },
+  "cmake_targets": {
+    "tulpar_common": "common",
+    "tulpar_cry": "cry",
+    "tulpar_com": "com",
+    "tulpar_del": "del",
+    "tulpar_evs": "evs",
+    "tulpar_obs": "obs",
+    "tulpar_sec": "sec",
+    "tulpar_mis": "mis",
+    "tulpar_lsc": "lsc",
+    "tulpar_agent": "root"
+  },
+  "harness_ns3_headers": ["ns3/tulpar-scenario.h", "ns3/tulpar-module.h"],
+  "rule_ids": {
+    "harness": "MD9 / RSD-SIM-02a: agent code must not reach the simulation harness or the ground truth",
+    "lsc": "MD19: the LSC links no agent module and no record decoder",
+    "sec_motion": "MD5: security has only need and state interfaces to mission",
+    "module": "RSD Table 4.25: modules exchange data only through the agent root's wiring and M-CRY services",
+    "wall_clock": "RSD-SIM-01a: no wall-clock call is reachable from agent code"
+  },
+  "wall_clock_patterns": [
+    "std::chrono::system_clock",
+    "std::chrono::steady_clock",
+    "std::chrono::high_resolution_clock",
+    "\\bsystem_clock::",
+    "\\bsteady_clock::",
+    "\\bgettimeofday\\s*\\(",
+    "\\bclock_gettime\\s*\\(",
+    "(?<![\\w:.>])time\\s*\\(\\s*(NULL|nullptr|0)?\\s*\\)",
+    "\\bstd::random_device\\b",
+    "(?<![\\w:.>])s?rand\\s*\\(",
+    "\\bstd::mt19937",
+    "\\bWallClockSynchronizer\\b",
+    "\\bRealtimeSimulatorImpl\\b"
+  ]
+}
