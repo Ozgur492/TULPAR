@@ -39,6 +39,11 @@ cd external/ns-3 && ./test.py --no-build -s tulpar-g0
 5. **Done.** An issue is done only when its acceptance check passes in CI. Comment on the issue with the commit hash, the check name and, for run-based checks, the run id and seed; then move it to Done. For criteria marked Simulation (M), the implementation issue closes when its deterministic checks pass; the statistical verdict is recorded on the experiment issue (E1-E15).
 6. **Blocked or unclear.** Comment on the issue, state what is missing and stop. Do not invent a requirement, a threshold or a value. Work found during a task becomes a new issue linked to it.
 
+## Jira writing rules
+
+- Comments are written in formal Turkish and record only work that was done: what changed, the commit, the check name and, for run-based checks, the run id and seed. Do not write notes about removed settings, reversed decisions or corrections; to correct a comment, edit it.
+- Issue descriptions are in Turkish. Requirement statements, acceptance criteria and any other text quoted from the RSD or the architecture stay in English, word for word. Issue summaries are not translated.
+
 ## Evidence rules (from the RSD)
 
 - Never mark a requirement verified without a run id, seed and commit. Never put a number into a results table that no run produced; placeholders stay visible.
