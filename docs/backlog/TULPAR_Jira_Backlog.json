@@ -287,7 +287,7 @@
    "issue_id": 22,
    "type": "Task",
    "summary": "Link Jira and GitHub (GitHub for Jira)",
-   "description": "Install the GitHub for Jira app on the Jira site and connect the repository, so commits and pull requests whose message starts with a TUL issue key appear on that issue.\n\n*Done when:* a test commit \"TUL-n ...\" shows up on TUL-n.\n\n*Owner:* Özgür Can Güngör (cryptography and local safety controller)",
+   "description": "Install the GitHub for Jira app on the Jira site and connect the repository, so commits and pull requests whose message starts with a TULPAR issue key appear on that issue.\n\n*Done when:* a test commit \"TULPAR-n ...\" shows up on TULPAR-n.\n\n*Owner:* Özgür Can Güngör (cryptography and local safety controller)",
    "labels": [
     "setup",
     "owner-ozgur",
@@ -405,7 +405,7 @@
    "issue_id": 30,
    "type": "Task",
    "summary": "CLAUDE.md: working rules for Claude Code",
-   "description": "Repository rules for Claude Code: the RSD in docs/ is the source of truth; work only on Jira issues in TUL; transition the issue to In Progress before work and to Done only when the acceptance check passes; commit messages start with the issue key; test names contain the requirement ID; never write a result that no run produced.\n\n*Done when:* CLAUDE.md is on main.\n\n*Owner:* Özgür Can Güngör (cryptography and local safety controller)",
+   "description": "Repository rules for Claude Code: the RSD in docs/ is the source of truth; work only on Jira issues in TULPAR; transition the issue to In Progress before work and to Done only when the acceptance check passes; commit messages start with the issue key; test names contain the requirement ID; never write a result that no run produced.\n\n*Done when:* CLAUDE.md is on main.\n\n*Owner:* Özgür Can Güngör (cryptography and local safety controller)",
    "labels": [
     "setup",
     "owner-ozgur",
