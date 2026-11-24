@@ -33,11 +33,17 @@ tulpar_static_target(tulpar_cry
   DEPS tulpar_common
 )
 
+# RSD-NET-01a: the mesh core builds without its ns-3 UDP adapter.
+tulpar_static_target(tulpar_mesh_core
+  SOURCES ${TULPAR_DIR}/agent/com/tulpar-mesh-core.cc
+  INCLUDE ${TULPAR_DIR}/agent/com
+)
+
 tulpar_static_target(tulpar_com
   SOURCES ${TULPAR_DIR}/agent/com/tulpar-com.cc
           ${TULPAR_DIR}/agent/com/tulpar-hello-header.cc
   INCLUDE ${TULPAR_DIR}/agent/com
-  DEPS tulpar_common tulpar_cry ${libnetwork} ${libinternet}
+  DEPS tulpar_common tulpar_cry tulpar_mesh_core ${libnetwork} ${libinternet}
 )
 
 foreach(m del evs obs sec mis)

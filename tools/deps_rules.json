@@ -31,6 +31,7 @@
     "tulpar_common": "common",
     "tulpar_cry": "cry",
     "tulpar_com": "com",
+    "tulpar_mesh_core": "com",
     "tulpar_del": "del",
     "tulpar_evs": "evs",
     "tulpar_obs": "obs",
@@ -46,6 +47,7 @@
     "sec_motion": "MD5: security has only need and state interfaces to mission",
     "module": "RSD Table 4.25: modules exchange data only through the agent root's wiring and M-CRY services",
     "wall_clock": "RSD-SIM-01a: no wall-clock call is reachable from agent code",
+    "mesh_core": "RSD-NET-01a: the mesh core target has no transport dependencies",
     "routing": "RSD-NET-01a: overlay frames go through UDP sockets and no ns-3 routing protocol is installed"
   },
   "wall_clock_patterns": [

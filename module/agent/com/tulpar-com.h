@@ -7,6 +7,7 @@
 #define TULPAR_COM_H
 
 #include "tulpar-agent-module.h"
+#include "tulpar-mesh-core.h"
 
 #include "ns3/event-id.h"
 #include "ns3/node.h"
@@ -69,7 +70,7 @@ class ComModule : public AgentModule
     Time m_period;                       ///< beacon period
     Ptr<Socket> m_socket;                ///< broadcast socket
     EventId m_next;                      ///< next scheduled beacon
-    uint32_t m_seq{0};                   ///< next sequence number
+    MeshCore m_mesh;                     ///< socket-independent overlay state
 };
 
 } // namespace tulpar

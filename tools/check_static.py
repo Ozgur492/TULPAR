@@ -73,6 +73,11 @@ class Checker:
             delim, name = m.group(1), m.group(2)
             line = code.count('\n', 0, m.start()) + 1
             where = f'{rel}:{line}'
+            if path.stem == 'tulpar-mesh-core' and not (
+                (delim == '<' and '/' not in name and name not in self.headers)
+                or name == 'tulpar-mesh-core.h'
+            ):
+                self.fail('mesh_core', where, f'mesh core includes {name}')
             if name.startswith('ns3/'):
                 if is_agent and name in self.rules['harness_ns3_headers']:
                     self.fail('harness', where, f'includes harness header {name}')
@@ -139,6 +144,8 @@ class Checker:
                     self.fail('harness', 'module/CMakeLists.txt', f'{name} links the harness library')
                 elif d in targets and targets[d] not in allowed:
                     self.fail(self.rule_for(part, targets[d]), 'module/CMakeLists.txt', f'{name} links {d}')
+        if declared.get('tulpar_mesh_core'):
+            self.fail('mesh_core', 'module/CMakeLists.txt', 'tulpar_mesh_core links another target')
         return declared
 
 

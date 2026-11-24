@@ -30,7 +30,8 @@ ComModule::ComModule(VehicleIdentity self,
     : AgentModule(std::move(self), sink),
       m_node(node),
       m_jitter(jitter),
-      m_period(period)
+      m_period(period),
+      m_mesh(m_self.index)
 {
 }
 
@@ -65,20 +66,20 @@ ComModule::Stop()
         m_socket->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
         m_socket = nullptr;
     }
-    Emit(MakeEvent("STOP").With("sent", static_cast<int64_t>(m_seq)));
+    Emit(MakeEvent("STOP").With("sent", static_cast<int64_t>(m_mesh.GetSentCount())));
 }
 
 void
 ComModule::SendBeacon()
 {
+    const MeshHello frame = m_mesh.MakeHello();
     HelloHeader hello;
-    hello.SetSender(m_self.index);
-    hello.SetSeq(m_seq);
+    hello.SetSender(frame.sender);
+    hello.SetSeq(frame.sequence);
     Ptr<Packet> packet = Create<Packet>();
     packet->AddHeader(hello);
     m_socket->SendTo(packet, 0, InetSocketAddress(Ipv4Address::GetBroadcast(), kBeaconPort));
-    Emit(MakeEvent("TX").With("seq", static_cast<int64_t>(m_seq)));
-    ++m_seq;
+    Emit(MakeEvent("TX").With("seq", static_cast<int64_t>(frame.sequence)));
 
     // Up to 10 % jitter keeps neighboring beacons from synchronizing.
     Time next = m_period + Seconds(0.1 * m_period.GetSeconds() * m_jitter->GetValue());
@@ -99,13 +100,14 @@ ComModule::HandleRead(Ptr<Socket> socket)
             continue;
         }
         packet->RemoveHeader(hello);
-        if (hello.GetSender() == m_self.index)
+        const MeshHello frame{hello.GetSender(), hello.GetSeq()};
+        if (!m_mesh.AcceptsHello(frame))
         {
             continue;
         }
         Emit(MakeEvent("RX")
-                 .With("from", static_cast<int64_t>(hello.GetSender()))
-                 .With("seq", static_cast<int64_t>(hello.GetSeq())));
+                 .With("from", static_cast<int64_t>(frame.sender))
+                 .With("seq", static_cast<int64_t>(frame.sequence)));
     }
 }
 
