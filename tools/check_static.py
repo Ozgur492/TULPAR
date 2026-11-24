@@ -9,6 +9,8 @@ Checks, with the requirement each one serves:
   lsc         MD19               the LSC includes and links no other agent module
   wall_clock  RSD-SIM-01a        no wall-clock or unseeded random call in agent code
   cmake       all of the above   the static targets link only what the rules allow
+  routing     RSD-NET-01a        no ns-3 routing protocol is installed: every InternetStackHelper gets static
+                                 routing with no route added, and no routing helper or route call appears
 
 Exit status 0 when no rule is violated, 1 otherwise. Rules: tools/deps_rules.json.
 """
@@ -140,6 +142,27 @@ class Checker:
         return declared
 
 
+    def check_routing(self):
+        """RSD-NET-01a: routing between nodes belongs to the overlay; IPv4 keeps only local delivery."""
+        base = self.root / 'module'
+        for path in sorted(base.rglob('*')):
+            if path.suffix not in SOURCE_SUFFIXES:
+                continue
+            rel = path.relative_to(self.root)
+            code = strip_comments(path.read_text(encoding='utf-8', errors='replace'))
+            for pattern in self.rules['routing_patterns']:
+                for m in re.finditer(pattern, code):
+                    self.fail('routing', f'{rel}:{code.count(chr(10), 0, m.start()) + 1}', f'matches {pattern!r}')
+            for m in re.finditer(r'\bInternetStackHelper\s+(\w+)\s*;', code):
+                var, line = m.group(1), code.count('\n', 0, m.start()) + 1
+                install = re.search(r'\b' + var + r'\s*\.\s*Install\s*\(', code[m.end():])
+                static = re.search(r'\b' + var + r'\s*\.\s*SetRoutingHelper\s*\(\s*Ipv4StaticRoutingHelper\s*\(',
+                                   code[m.end():])
+                if install and not (static and static.start() < install.start()):
+                    self.fail('routing', f'{rel}:{line}',
+                              f'{var} is installed without SetRoutingHelper(Ipv4StaticRoutingHelper()) first')
+
+
 def cmake_calls(text, func):
     """Yield (position, body) of every call of a CMake function, with balanced parentheses."""
     i = 0
@@ -169,6 +192,7 @@ def main():
     c = Checker(root, rules)
     n = c.check_sources()
     declared = c.check_cmake()
+    c.check_routing()
     print(f'check_static: {n} source files, {len(declared)} static targets')
     if c.violations:
         for rule, where, message in c.violations:

@@ -25,6 +25,7 @@ def run_checker(root):
     c = Checker(root, RULES)
     c.check_sources()
     c.check_cmake()
+    c.check_routing()
     return {rule for rule, _, _ in c.violations}
 
 
@@ -66,6 +67,15 @@ CASES = [
      lambda r: replace(r, 'module/CMakeLists.txt',
                        'INCLUDE ${TULPAR_DIR}/agent/cry\n  DEPS tulpar_common',
                        'INCLUDE ${TULPAR_DIR}/agent/cry\n  DEPS tulpar_common ${libtulpar}')),
+    ('scenario installs the default routing of InternetStackHelper (RSD-NET-01a)', 'routing',
+     lambda r: replace(r, 'module/sim/tulpar-scenario.cc',
+                       '    internet.SetRoutingHelper(Ipv4StaticRoutingHelper());\n', '')),
+    ('scenario fills global routing tables (RSD-NET-01a)', 'routing',
+     lambda r: append(r, 'module/sim/tulpar-scenario.cc',
+                      '\nstatic void F() { Ipv4GlobalRoutingHelper::PopulateRoutingTables(); }\n')),
+    ('agent adds a static route (RSD-NET-01a)', 'routing',
+     lambda r: append(r, 'module/agent/com/tulpar-com.cc',
+                      '\nstatic void G(Ptr<Ipv4StaticRouting> s) { s->AddHostRouteTo(Ipv4Address(), 1); }\n')),
 ]
 
 

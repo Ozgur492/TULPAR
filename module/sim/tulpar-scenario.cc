@@ -15,6 +15,7 @@
 #include "ns3/hash.h"
 #include "ns3/internet-stack-helper.h"
 #include "ns3/ipv4-address-helper.h"
+#include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4.h"
 #include "ns3/log.h"
 #include "ns3/mobility-helper.h"
@@ -117,7 +118,11 @@ RunScenario(const ScenarioConfig& config)
     mac.SetType("ns3::AdhocWifiMac");
     NetDeviceContainer devices = wifi.Install(phy, mac, nodes);
 
+    // Routing between vehicles belongs to the TULPAR overlay only (RSD-NET-01a). The IPv4 stack
+    // gets static routing with no route added, which delivers to the node's own UDP sockets and
+    // one-hop broadcast and selects no path to another node; no ns-3 routing protocol is installed.
     InternetStackHelper internet;
+    internet.SetRoutingHelper(Ipv4StaticRoutingHelper());
     internet.Install(nodes);
     Ipv4AddressHelper addresses;
     addresses.SetBase("10.1.0.0", "255.255.0.0");
