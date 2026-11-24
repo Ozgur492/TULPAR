@@ -45,7 +45,8 @@
     "lsc": "MD19: the LSC links no agent module and no record decoder",
     "sec_motion": "MD5: security has only need and state interfaces to mission",
     "module": "RSD Table 4.25: modules exchange data only through the agent root's wiring and M-CRY services",
-    "wall_clock": "RSD-SIM-01a: no wall-clock call is reachable from agent code"
+    "wall_clock": "RSD-SIM-01a: no wall-clock call is reachable from agent code",
+    "routing": "RSD-NET-01a: overlay frames go through UDP sockets and no ns-3 routing protocol is installed"
   },
   "wall_clock_patterns": [
     "std::chrono::system_clock",
@@ -61,5 +62,14 @@
     "\\bstd::mt19937",
     "\\bWallClockSynchronizer\\b",
     "\\bRealtimeSimulatorImpl\\b"
+  ],
+  "routing_patterns": [
+    "\\bIpv4GlobalRoutingHelper\\b",
+    "\\bIpv4ListRoutingHelper\\b",
+    "\\b(Olsr|Aodv|Dsdv|Dsr|Nix\\w*)Helper\\b",
+    "\\b(Populate|Recompute)RoutingTables\\s*\\(",
+    "\\bAdd(HostRouteTo|NetworkRouteTo|MulticastRoute)\\s*\\(",
+    "\\bSetDefaultRoute\\s*\\(",
+    "\"IpForward\"\\s*,\\s*BooleanValue\\s*\\(\\s*true"
   ]
 }
