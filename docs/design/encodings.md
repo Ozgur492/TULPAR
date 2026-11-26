@@ -1,29 +1,41 @@
 # TULPAR byte-level encodings: proposal
 
-**Status:** DRAFT, awaiting approval (Özgür Can Güngör, Cemre Karabulut; list bounds of the Group Status Summary: Berra). No code is written against this document before approval.
-**Issue:** TULPAR-160, "Freeze byte-level encodings of records, bundles and messages".
-**Sources:** RSD v1.1, Table 4.26 (Section 4.9), Table 2.1, Tables 4.29 and 4.30, Sections 4.3, 4.4, 4.5, 4.6, 4.8, 5.1 and 6.5.
+**Status:** DRAFT, awaiting approval (Özgür Can Güngör, Cemre Karabulut; list bounds of the Group Status Summary: Berra; epoch uniqueness rule: Özgür). No code is written against this document before approval.
+**Issue:** TULPAR-160, "Freeze byte-level encodings of records, bundles and messages". RSD corrections: TULPAR-479.
 
-The RSD leaves the byte level to Phase 1 on purpose: *"Field sizes are given where the architecture gives them; byte-level encodings are frozen in Phase 1."* (note to Table 4.26). This document is the proposal for that freeze.
+## 0. Sources and how they are used
 
-**How widths are chosen.** Every width is chosen for correctness, security and simplicity. Tables 4.29 and 4.30 are calculations, not requirements, and no width is chosen to match them. Where a frozen size differs from those tables, the difference and its effect on the channel share are stated with the format and collected in Section 8. All sizes and shares in this document are calculations from the proposed layouts, not measurements.
+| Priority | Source | Use |
+|---|---|---|
+| 1 | RSD v1.1 (`docs/rsd/TULPAR_RSD_v1.1.md`) | Governs in every case. |
+| 2 | HOTL & National SATCOM Final Integration Package, Redundant Gateway Edition | Replaces V13.3 and V13.2 on HOTL and SATCOM topics. Used: HL-11, HL-12, HL-15, HL-38, HL-41, HL-44. |
+| 3 | V13.3 Change Set (frozen) | Changes V13.2. Used: C07 (quotes in HS2 and HS3), C08 (malformed record as M4), C10 (Section 11.10), C19 (Tables C.4 and C.5). |
+| 4 | V13.2 System Architecture | Used: Section 7.2, 7.3, 7.5, 7.7, 8.2; Table 5.2; Tables 7.4, 8.1, 8.2; Appendix C (Tables C.1 to C.5). |
+| — | Common-Mode Compromise Rev 4.1 | A proposal report; only the parts the RSD adopted apply. No field in this document rests on it alone. |
 
-**The RSD stays binding.** Until a new RSD version changes it, the RSD governs. Where this document finds the RSD wrong, ambiguous or outdated, the finding is listed in Section 8 with a proposed correction, and the code follows the current RSD text. No width proposed here departs from a requirement. Where a requirement is ambiguous, the reading chosen is stated in Section 8.
+The architecture is used where the RSD leaves the detail: *"Field sizes are given where the architecture gives them; byte-level encodings are frozen in Phase 1."* (note to Table 4.26). Where the architecture conflicts with the RSD, or has no counterpart in it, it is not used; each such case is in Section 9. Known RSD-over-architecture differences that apply here: three agent builds E, I, R (RSD-CMC-05), not one per group (V13.3 C07); the command ship is not a mandatory fourth gateway (CMC-R-14 not adopted); a Group Status Summary goes as one copy to each reachable designated gateway (RSD-HOT-05a), not to the command ship (V13.3 C10).
 
-**No field is repeated.** One piece of information is carried in one field. Where Table 4.26 lists a field that another field of the same frame or record already carries, the field is marked "derived" with width 0 and its source. Section 4.2 explains the one case where a value appears both in a bundle header and in the records it carries.
+The source texts are PDF and DOCX extractions. Every table used below was read in full; no value was taken from a table that could not be read reliably. Where a source was unreadable, the row says "not readable in source".
+
+**How widths are chosen.** By the architecture where it gives a size; otherwise for correctness, security and simplicity. Tables 4.29 and 4.30 are calculations, not requirements, and no width is chosen to match them. Where a frozen size differs from those tables, the difference and its effect on the channel share are stated with the format and collected in Section 8. All sizes and shares here are calculations from the proposed layouts, not measurements.
+
+**The RSD stays binding.** Until a new RSD version changes it, the RSD governs; findings are listed in Section 8 and the code follows the current RSD text.
+
+**No field is repeated.** One piece of information is carried in one field. A Table 4.26 field that another field of the same frame or record already carries is marked "derived" with width 0. Section 4.2 explains the one case where a value appears in a bundle header and in its records.
 
 ## 1. Markers
 
 | Marker | Meaning |
 |---|---|
-| ✔ | Size stated in Table 4.26. |
-| † | Size derived from another RSD rule, cited in the row. Needs approval. |
-| proposal | The RSD gives no size; this document proposes one. Needs approval. |
+| ✔ | Size stated in RSD Table 4.26. |
+| A | Size stated in the architecture; the source is cited. |
+| † | Size derived from another RSD rule, cited in the row. |
+| proposal | Neither the RSD nor the architecture gives a size; this document proposes one. |
 | added field | Not in Table 4.26, but another RSD requirement makes it necessary (see Section 8). |
 | derived | Listed in Table 4.26, carried by another field; width 0. |
-| assumption | A meaning or algorithm the RSD does not state; this document assumes it. |
+| assumption | A meaning or algorithm no source states; this document assumes it. |
 
-Every proposal row names the alternative width and why it was not chosen.
+Every proposal row names the alternative and why it was not chosen. Every row marked †, proposal or assumption needs approval.
 
 ## 2. Canonical encoding rules
 
@@ -31,365 +43,411 @@ These rules apply to every record, bundle and frame. A signed record that violat
 
 | No | Rule (proposal) | Rationale | Alternative and why not |
 |---|---|---|---|
-| K1 | All integers are big-endian (network byte order). | ns-3 `Buffer::Iterator::WriteHtonU*` convention; the existing `HelloHeader` uses it. | Little-endian: native on x86, but departs from the ns-3 header convention and makes PHY traces harder to read. |
-| K2 | Only fixed-width integers (u8, u16, u32, u64; i32 for positions). No variable-length integers. | One value has one encoding; non-canonical varint forms (extra zero bytes) cannot arise (RSD-CMC-02a). | LEB128 varint: saves a few bytes, but needs a "shortest form" check on every field and complicates fixed size limits (RSD-CMC-01c). |
-| K3 | No floating point. Continuous quantities are quantized to integers with a stated scale. The producer quantizes once; the receiver never re-quantizes. | RSD-EVD-03b forbids "platform-dependent rounding"; the event log also uses integer nanoseconds. | IEEE-754 binary32/64: NaN, -0 and multiple bit patterns break canonicity. |
-| K4 | Quantization is `q = llround(x * scale)` (halves rounded away from zero), then saturated to the field's range. | `std::llround` gives the same result on every platform for IEEE-754 doubles. | `floor`: systematic bias on negative coordinates. |
-| K5 | Lists are a count (u8; u16 where needed) followed by the items. Every list type has a fixed maximum count; exceeding it is malformed. | RSD-CMC-01c: "Every ingress parser shall enforce fixed size limits on its input." | Sentinel terminator: the size limit can only be checked at the end of parsing. |
-| K6 | Lists with set semantics (parents, common-cause tags, parent epochs, basis) are encoded in strictly ascending order with no duplicates. | The same set encodes to one byte string, so the identifier follows the content (RSD-EVD-02a). | Producer order: the same content would yield two identifiers. |
-| K7 | Variable-length byte strings carry a u16 length prefix; the embedded proof carries a u32 length prefix. | No record exceeds 65 535 bytes. An equivocation proof holds two bundles (about 11 kB; "a G3 proof of about 10.5 kB", Section 4.10). | u32 everywhere: 2 bytes wasted per record for no case that needs it. |
-| K8 | Optional field: a 1-byte presence flag (0 or 1), followed by the value only if the flag is 1. Any other flag value is malformed. | One encoding. | "All zeros means absent": can collide with a valid value. |
-| K9 | Enumerations are u8; an undefined value is malformed. | The RSD's closed sets (RSD-HOT-02a, RSD-OBS-03a). | u16: the closed sets are far below 256 values. |
-| K10 | Roster sets are bitmaps of ceil(N/8) bytes (N: roster size in the provisioning package); bit i = roster index i, most significant bit first in each byte. Unused padding bits must be 0. | Fixed size for a mission, one encoding per set without a sorting rule, and membership is a single bit test. N ≤ 20 (Section 1.4) gives 3 bytes. | List of u16 identifiers: variable length, needs K6 ordering and duplicate checks. |
-| K11 | Every encoding is consumed exactly. Trailing bytes or a length mismatch reject the input. | One byte string has one parse (RSD-CMC-02b: every build gives the same verdict). | Ignoring trailing bytes: one record gets several byte strings, which breaks signed-equivocation detection. |
-| K12 | Hash and signature inputs are prefixed with an ASCII domain label, e.g. `"TULPAR/1/record"`, `"TULPAR/1/bundle"`, `"TULPAR/1/hello"`. | A record signature cannot be reused as a frame or handshake signature. | No label: cross-protocol confusion is left to the luck of the layouts. |
-| K13 | Record identifier = SHA-384(`"TULPAR/1/record"` ‖ canonical encoding of all fields except the identifier). | RSD-EVD-02a: "the SHA-384 hash of the canonical encoding of all its other fields". | None (set by the RSD). |
-| K14 | A derived field is not encoded. Where a value appears in two places because each place must stand alone (Section 4.2), the decoder checks equality and rejects a mismatch as malformed. | One piece of information, one field; no mismatch state can exist unchecked. | Carrying both without a check: two sources of truth. |
+| K1 | All integers are big-endian. | ns-3 `Buffer::Iterator::WriteHtonU*` convention; the existing `HelloHeader` uses it. | Little-endian: departs from the ns-3 header convention. |
+| K2 | Only fixed-width integers (u8, u16, u32, u64; i32 for positions). No variable-length integers. | One value has one encoding (RSD-CMC-02a). | LEB128 varint: needs a "shortest form" check on every field and complicates fixed size limits (RSD-CMC-01c). |
+| K3 | No floating point. Continuous quantities are quantized to integers with a stated scale. The producer quantizes once; the receiver never re-quantizes. | RSD-EVD-03b forbids "platform-dependent rounding". | IEEE-754: NaN, -0 and multiple bit patterns break canonicity. |
+| K4 | Quantization is `q = llround(x * scale)`, then saturated to the field's range. | `std::llround` gives the same result on every platform for IEEE-754 doubles. | `floor`: bias on negative coordinates. |
+| K5 | Lists are a count (u8, or u16 where needed) followed by the items. Every list type has a fixed maximum count; exceeding it is malformed. | RSD-CMC-01c: "Every ingress parser shall enforce fixed size limits on its input." | Sentinel terminator: the limit can only be checked at the end. |
+| K6 | Lists with set semantics (parents, parent epochs) are encoded in strictly ascending order with no duplicates. | The same set encodes to one byte string, so the identifier follows the content (RSD-EVD-02a). | Producer order: the same content would yield two identifiers. |
+| K7 | Variable-length byte strings carry a u16 length prefix; an embedded proof carries a u32 length prefix. | No record exceeds 65 535 bytes; an equivocation proof is about 10 kB (Section 4.9). | u32 everywhere: no case needs it. |
+| K8 | Optional field: a 1-byte presence flag (0 or 1), followed by the value only if the flag is 1. Other flag values are malformed. Where the type determines presence (Section 4.11), no flag is sent. | One encoding. | "All zeros means absent": can collide with a valid value. |
+| K9 | Enumerations are u8; an undefined value is malformed. | Closed sets of the RSD and the architecture. | u16: no set comes near 256 values. |
+| K10 | Roster sets are bitmaps of ceil(N/8) bytes (N: roster size), bit i = roster position i, most significant bit first. Unused padding bits must be 0. | Fixed size for a mission, one encoding per set, no sorting rule. N ≤ 20 gives 3 bytes. Roster positions are fixed by the signed roster (AS3). | List of 8-byte certificate identifiers: up to 160 bytes and needs K6 checks. See D8 in Section 9. |
+| K11 | Every encoding is consumed exactly; trailing bytes or a length mismatch reject the input. | One byte string has one parse (RSD-CMC-02b). | Ignoring trailing bytes: breaks signed-equivocation detection. |
+| K12 | Hash, MAC and signature inputs are prefixed with an ASCII domain label, e.g. `"TULPAR/1/record"`, `"TULPAR/1/bundle"`, `"TULPAR/1/hello"`. | A signature or MAC of one kind cannot be reused as another kind. | No label: cross-protocol confusion is left to the layouts. |
+| K13 | Record identifier = SHA-384(`"TULPAR/1/record"` ‖ canonical encoding of all fields except the identifier). | RSD-EVD-02a. V13.2 Table 8.1: "rid — SHA-384 of the canonical encoding of all other fields". | None. |
+| K14 | A derived field is not encoded. Where a value appears in two places because each must stand alone (Section 4.2), the decoder checks equality; a mismatch is malformed. | One field per piece of information. | Carrying both unchecked: two sources of truth. |
 
 ## 3. Common types
 
 | Type | Width | Kind | Marker | Rationale | Alternative and why not |
 |---|---|---|---|---|---|
-| NodeId (origin, sender, vehicle, producer) | 2 | u16 roster index; 0xFFFF reserved | proposal | Vehicle id is 2 B in the LSC beacon (RSD-SAF-02d); the existing `MeshHello::sender` is u16. 0xFFFF is reserved for broadcast and for headquarters. | u8: enough for 20 nodes, but inconsistent with the beacon and closes off the larger-fleet future work of Section 6.6. |
-| Hash48 | 48 | bytes | † | SHA-384 digest is 48 B (Table 2.1, RSD-CRY-01d). | None. |
-| RecordId | 48 | Hash48 | † | RSD-EVD-02a. | 16-byte truncation: the identifier is a content address and would be open to birthday collisions. |
-| Signature | 4627 | bytes | ✔ / † | ML-DSA-87 signature is 4627 B (Table 2.1, Table 4.26, RSD-CRY-01b). | None. |
+| NodeId (origin, sender, next hop, neighbor, vehicle, producer) | 8 | 8-byte certificate identifier | A | V13.2 Section 7.2: "only an 8-byte certificate identifier travels over the air"; Table C.3: "sender id (8), next-hop id or broadcast (8)"; Table 5.2: "Neighbour id (8)". All-ones = broadcast; all-zero = headquarters. | 2-byte roster index (previous draft): smaller, but the architecture fixes 8 bytes. The LSC beacon's 2-byte vehicle id (RSD-SAF-02d) belongs to the LSC's raw frame only. |
+| CertId (operator, excluded certificate) | 8 | 8-byte certificate identifier | A | V13.2 Section 7.2, Table 7.5. | None. |
+| SuiteSchemaId | 1 | u8, one value per (format version, crypto suite, schema version) combination, listed in the specification | A | V13.2 Appendix C: "versioned with a one-byte suite and schema identifier"; Table C.3: "Version and suite (1)". Values are an enumeration, not bit fields. | u16 schema version (previous draft): the architecture fixes one byte. Separate version and suite bytes: the architecture fixes one. |
+| Hash48 | 48 | bytes | † | SHA-384 (Table 2.1, RSD-CRY-01d). | None. |
+| RecordId | 48 | Hash48 | † / A | RSD-EVD-02a; V13.2 Table 8.1. | Truncation: the identifier is a content address. |
+| Signature | 4627 | bytes | ✔ | ML-DSA-87 (Table 2.1, RSD-CRY-01b). | None. |
 | MlDsaPublicKey | 2592 | bytes | † | Table 2.1. | None. |
-| MlKemEncapsKey, MlKemCiphertext | 1568 | bytes | ✔ / † | Table 2.1, RSD-CRY-01e. | None. |
-| GcmTag | 16 | bytes | ✔ | Table 2.1, Table 4.26 (overlay header "16-byte tag"). | None. |
-| Window | 4 | u32 window index from mission start | proposal | The window is 5 s (Table 1.7); the mission configuration sets the mission length and the RSD does not bound it. u32 cannot wrap in any mission. | u16: enough for 91 hours, but would need a wrap rule for a length the RSD leaves open. |
-| SimTime | 8 | u64 simulation time, integer nanoseconds | proposal | Event-log rule (CLAUDE.md: "integer nanoseconds"); RSD-SIM-01. One time unit in the whole system. | u32 milliseconds: smaller, but introduces a second time unit and a conversion. |
-| EpochId | 6 | u16 producer NodeId ‖ u32 record sequence number of that producer's epoch announcement | proposal | See "Epoch identifier width" below. | See below. |
-| CommandId | 6 | u16 console id ‖ u32 console sequence | proposal | Table 4.26: "command id (console, console sequence)". | u16 sequence: a wrap would break the deduplication of RSD-HOT-06g. |
-| CertIndex | 2 | u16 index into the provisioning package's certificate list | proposal | The provisioning package is fixed and signed for the whole mission (RSD-ORG-05a), so an index is unambiguous. | 48 B certificate hash: also unambiguous, but a second way to name the same certificate. |
-| Position | 12 | 3 × i32: x east, y north, z up; local ENU relative to the origin in the mission configuration; centimeters | proposal | The LSC beacon has "position and altitude (12 B)" (RSD-SAF-02d), i.e. 3 × 4 B. ns-3 MobilityModel gives Cartesian meters. i32 cm covers ±21 474 km. The M8 kinematic check can use integers without trigonometry (RSD-EVD-03b). | Latitude/longitude i32 at 1e-7 degree: distances need trigonometry and are exposed to platform-dependent rounding. |
-| PositionSource | 1 | u8: 0 GNSS, 1 radar fix, 2 mutual tracking, 3 other | ✔ set / proposal codes | Closed set of RSD-OBS-03a. | None. |
-| ErrorBound | 2 | u16 decimeters, saturating at 6553.5 m | proposal | GNSS error is on the order of meters, radar-fix error tens of meters; 0.1 m resolution is enough. | u32 cm: resolution beyond sensor accuracy. |
-| Etx | 2 | u16 Q8.8 fixed point (value × 256), saturating at 65535 | proposal | ETX ≥ 1; no floating point (K3). | u8 Q4.4: 1/16 resolution increases ties in route selection. |
-| SchemaVersion | 2 | u16 | added field | RSD-CMC-02c: "A record that carries a schema version other than the mission's shall be rejected". | u8: enough today, but an overflow later would break the frozen format. |
+| MlKemEncapsKey, MlKemCiphertext | 1568 | bytes | ✔ / † | Table 2.1; V13.2 Table C.3. | None. |
+| GcmTag | 16 | bytes | ✔ / A | Table 4.26; V13.2 Table C.3. | None. |
+| Window | 4 | u32 window index from mission start | proposal | The mission configuration sets the mission length and no source bounds it; u32 cannot wrap. | u16: 91 hours; would need a wrap rule. |
+| SimTime | 8 | u64 simulation time, integer nanoseconds | proposal | One time unit across the system, as in the event log (RSD-SIM-01). | u32 ms: a second time unit. |
+| EpochRef | 12 | producer NodeId (8) ‖ epoch number u32 (4) | proposal | See "Epoch identifier" below. | See below. |
+| CommandId | 5 | console u8 ‖ console sequence u32 | proposal | Table 4.26 and V13.3 C19: "command id = (console, console sequence)". Consoles are named in the mission plan (HL-30: a primary and an optional console). | u16 console: no mission names more than a few consoles. u16 sequence: a wrap would break RSD-HOT-06g. |
+| Position | 12 | 3 × i32: x east, y north, z up; local ENU from the mission-configuration origin; centimeters | proposal | 12 B matches the LSC beacon's "position and altitude (12 B)" (RSD-SAF-02d) and V13.2 Table 5.2 "pos 12". Integer kinematics without trigonometry (RSD-EVD-03b). | Latitude/longitude (V13.2 Table C.1 for observations): needs trigonometry and is exposed to platform rounding. See D9. |
+| PositionSource | 1 | u8: 0 GNSS, 1 radar fix, 2 mutual tracking, 3 other | A set / proposal codes | RSD-OBS-03a; V13.2 Table 5.2 "pos_src 1". | None. |
+| ErrorBound | 2 | u16 decimeters, saturating at 6553.5 m | A width / proposal unit | V13.2 Table 5.2 "pos_err 2". | None. |
+| Etx | 2 | u16 Q8.8 fixed point (value × 256), saturating | A width / proposal scale | V13.2 Table 5.2 "quantised ETX ... (2 + 2)". ETX ≥ 1; the hysteresis band of ±0.5 (V13.2 Section 5.4) needs better than 0.5 resolution. | Q4.12: range only up to 16. |
+| BuildId | 1 | u8: 1 E, 2 I, 3 R | proposal codes | RSD-CMC-05b: three builds. V13.3 C07 "build identifier per group" is not used (RSD governs). | None. |
 
-**Epoch identifier width.** The epoch appears in every record header and in HELLO. Partitioned components open epochs without knowing of each other (RSD-CRY-03h, RSD-CRY-03i), so the identifier must be unique without coordination, and two different epochs must never compare equal; otherwise RSD-CRY-03h ("When two epoch announcements share a parent epoch...") would match unrelated epochs. Options:
+### Epoch identifier (decision: Özgür)
 
-| Option | Width | Uniqueness without coordination | Verdict |
+**Width.** The epoch reference is carried in every record header and in HELLO, and partitioned components open epochs without knowing of each other (V13.2 Section 7.5; RSD-CRY-03i). It must therefore be unique across components without coordination. A reference that contains the producer's 8-byte identity and a producer-local number is unique by construction across producers; two values from one producer can only collide inside that producer's own chain. Alternatives:
+
+| Option | Width | Verdict |
+|---|---|---|
+| Counter only (u32) | 4 | Rejected: two components both open "epoch 5". |
+| Random value | 8 | Rejected: chosen by the producer, so a compromised producer can copy another component's value. |
+| Truncated hash of the announcement, 16 B | 16 | Rejected: probabilistic, and 4 B larger than the structured reference. |
+| Full SHA-384 of the announcement | 48 | Rejected: 36 B more in every record header and in HELLO. |
+| **Producer NodeId (8) ‖ epoch number u32 (4)** | **12** | **Proposed.** Unique across producers by construction; the producer part is the identity that already travels over the air. |
+
+**Uniqueness key: the open point.** V13.2 Table 8.2 gives the semantic uniqueness key of an epoch announcement as "(producer, epoch_id)": two different announcements under the same key are an equivocation (G3). The previous draft set the epoch number to the announcement's own record sequence number. That reduces the key to the chain position, so the semantic key adds nothing, and one gap remains in every variant that keys on the epoch number: one producer can publish two different announcements from the same parent epoch under two different epoch numbers. Neither is an equivocation, and RSD-CRY-03h ("every agent shall adopt the announcement of the producer with the smaller rank number") orders only different producers. Agents could then follow different epochs from one producer.
+
+| Option | Rule | Effect | Cost |
 |---|---|---|---|
-| Counter (u32) | 4 | No: two components both open "epoch 5". | Rejected. |
-| Random value | 8 | Probabilistic; the value is chosen by the producer, so a compromised producer can pick any value, including another component's. | Rejected. |
-| Truncated hash of the announcement, 8 B | 8 | Probabilistic; the producer can grind the announcement content to a chosen 64-bit prefix collision in about 2^32 hash operations. | Rejected. |
-| Truncated hash, 16 B | 16 | Collision-resistant at 2^64 work. | Rejected: 10 B more in every record header than the structured option, for a weaker (probabilistic) property. |
-| Full SHA-384 of the announcement | 48 | Collision-resistant. | Rejected: 42 B more in every record header and in HELLO. |
-| **Structured: producer NodeId (2) ‖ record sequence number of the announcement in the producer's chain (4)** | **6** | **By construction.** Each producer opens epochs only in its own chain, and a chain position holds one record. Two different announcements with the same identifier are two records at one chain position, which is an equivocation and a G3 proof against the producer (RSD-SEC-01d). | **Proposed.** |
+| E1 | Epoch number = producer-chosen u32, strictly increasing per producer; ukey (producer, epoch number) as in V13.2 Table 8.2. | Two different announcements with one number are G3. | The gap above stays open; needs E3 or a finding. |
+| E2 | ukey (producer, parent epochs): two different announcements of one producer from the same parent set are an equivocation. Epoch number as in E1. | The gap becomes a G3 proof. | Changes the semantic key of V13.2 Table 8.2 (D11). A producer must adopt its own announcement before it can announce again, or a legitimate re-announcement from the same parent becomes a proof against it. |
+| E3 | Deterministic adoption rule: among announcements of one producer that share a parent, every agent adopts the one with the smallest epoch number and keeps the others for decryption only, for two windows (as RSD-CRY-03h does for two producers). | All agents with the same evidence converge (RSD-EVD-03a); no new proof type. | Extends RSD-CRY-03h; recorded as finding F19. |
+| E4 | Epoch number = the announcement's record sequence number (previous draft). | Width unchanged; unique by chain position. | Same gap as E1; ukey adds nothing. |
 
-The initial epoch from the provisioning package is 0xFFFF ‖ 0. The structured identifier needs no hash computation and is verifiable against the announcement's own header (Section 4.8).
+The width (12 B) is the same under every option. Recommendation, for Özgür's decision: E1 + E3. It keeps the architecture's semantic key, adds no new G3 case beyond RSD-SEC-01d, and closes the gap by a deterministic rule of the same kind as RSD-CRY-03h.
+
+The initial epoch from the provisioning package is (all-zero NodeId, 0).
 
 ## 4. Records and frames
 
-Fields are listed in the order of Table 4.26. Added fields are placed at the start.
+Fields are listed in the order of Table 4.26. "A" rows cite the architecture table that gives the size.
 
-### 4.1 Common record header (RSD-EVD-02, RSD-EVD-05, RSD-OBS-03)
+### 4.1 Common record header (RSD-EVD-02, RSD-EVD-05, RSD-OBS-03; V13.2 Table 8.1)
 
 | Field | Width | Kind | Marker | Rationale | Alternative and why not |
 |---|---|---|---|---|---|
-| schema version | 2 | SchemaVersion | added field | RSD-CMC-02c. | See Section 3. |
-| identifier | 0 | RecordId | derived (48 B) | The receiver computes it by K13 from the other fields. Carrying it would repeat information the content already determines. | Carry it: a second source of truth whose mismatch case the RSD does not classify. **Decision needed (S1); see finding F8.** |
-| origin | 2 | NodeId | proposal | Section 3. | None. |
-| record sequence number | 4 | u32 | proposal | Position in the origin's chain; cannot wrap in any mission. | u16: 65 535 records per origin can be exceeded in long missions. u64: no mission needs it. |
-| previous-record hash | 48 | Hash48 | † | SHA-384 (RSD-CRY-01d); chain integrity (RSD-EVD-05a). | Truncated hash: chain integrity is a direct security property. |
+| suite and schema identifier | 1 | SuiteSchemaId | added field / A | RSD-CMC-02c requires a schema version on every record; V13.2 Appendix C gives one byte. | None. |
+| identifier (rid) | 0 | RecordId | derived | Computed by K13 from the other fields. V13.2 Table 8.1 lists rid in the header (D1). | Carry it: a second source of truth with an unclassified mismatch case (F8). **S1.** |
+| origin | 8 | NodeId | A | Section 3. | None. |
+| record sequence number (rseq) | 4 | u32 | proposal | Chain position; cannot wrap in any mission. | u16: can be exceeded in long missions. |
+| previous-record hash (prev) | 48 | Hash48 | † | SHA-384; chain integrity (RSD-EVD-05a). | None. |
 | window | 4 | Window | proposal | Section 3. | None. |
-| epoch | 6 | EpochId | proposal | Section 3. | None. |
-| type | 1 | u8 record type code | proposal | Closed set; adding a type is a schema version change (RSD-CMC-02c). About 30 types today. | u16: nowhere near 256 types. |
-| uniqueness key | 16 | bytes: first 16 bytes of SHA-384(type-specific key fields) | proposal, assumption | **The RSD does not define this field's meaning (F10).** Assumption: (origin, type, uniqueness key) names one logical record; two different records with the same triple either form a supersedes relation or an equivocation. It is compared only among one origin's own records, so a collision can only implicate its own producer. | 48 B: no security gain for a comparison within one origin. 8 B: accidental collision among one origin's records becomes plausible at about 2^32 records. **Meaning needs approval (S2).** |
-| supersedes | 1 + 0/48 | optional RecordId (K8) | proposal | A corrected bid supersedes the earlier one (Section 4.2, task allocation). | Always 48 B: empty in most records. |
-| parents | 1 + 48·n | u8 count + RecordId list, K6, n ≤ 16 | proposal | Dependency edges (Table 1.7, Evidence Graph). | u16 count: more than 255 parents is needed nowhere in the RSD. **The bound 16 is a proposal (S3).** |
-| common-cause tags | 1 + 2·n | u8 count + u16 tag codes (index into the mission configuration's tag table), K6, n ≤ 8 | proposal | RSD-OBS-03d: tags come from the mission configuration; the record carries only indices. | Text tags: variable length and canonicity problems. **The bound 8 is a proposal (S3).** |
-| policy hash | 48 | Hash48 | † | SHA-384; Table 4.26 "policy hash". | None. |
+| epoch | 12 | EpochRef | proposal | Section 3. | None. |
+| type | 1 | u8 record type code | proposal | Closed set (V13.2 Table 8.2 plus later types); a new type is a schema change (RSD-CMC-02c). | u16: no need. |
+| uniqueness key (ukey) | 0 | derived from type and payload | derived / A | V13.2 Table 8.2 defines the semantic key per type from payload fields: LSA (origin, lsa_seq); CONTRACT (origin, contract_id); epoch announcement and revocation (producer, epoch_id) (see Section 3); proof: content-addressed. Other types have none. Every key is made of fields that are already in the record. | A separate 16 B key field (previous draft): repeats payload information. |
+| supersedes | 1 + 0/48 | optional RecordId (K8) | A meaning / proposal width | V13.2 Table 8.1: "Identifier of an earlier record of the same origin that this record updates, or none". | Always 48 B: empty in most records. |
+| parents | 1 + 48·n | u8 count + RecordId list, K6, n ≤ 16 | A meaning / proposal bound | V13.2 Table 8.1: "Identifiers of the records it rests on". | u16 count: no case needs it. **Bound 16: S3.** |
+| common-cause tags (roots) | 3 | sensor profile u8, build u8 (software version), position source u8; 0xFF = not applicable | A meaning / proposal widths | V13.2 Table 8.1: "Declared common-cause tags: sensor profile, software version, position source". Receivers take sensor model and software version from the mission configuration, never from the record (RSD-OBS-03d). Software version = BuildId. | Variable list of tag codes (previous draft): the architecture fixes the three tag kinds, so a fixed layout is simpler. |
+| policy hash | 48 | Hash48 | † / A | V13.2 Table 8.1: "Hash of the policy version used"; Section 7.2: the policy set is "identified by its version hash". | None. |
 
-Fixed part without parents, supersedes or tags: 2+2+4+48+4+6+1+16+1+1+1+48 = **134 B**.
+Fixed part without supersedes and parents: 1+8+4+48+4+12+1+1+1+3+48 = **131 B**.
 
-The type-specific body follows the header. A record carries no signature of its own; it is covered by its bundle's signature (RSD-EVD-01a).
-
-### 4.2 Signed bundle (RSD-EVD-01, RSD-CRY-01b)
+### 4.2 Signed bundle (RSD-EVD-01, RSD-CRY-01b; V13.2 Table C.4)
 
 | Field | Width | Kind | Marker | Rationale | Alternative and why not |
 |---|---|---|---|---|---|
-| schema version | 2 | SchemaVersion | added field | RSD-CMC-02c, rejection before signature verification. | Only in records: the bundle-level checks of RSD-EVD-01g would have to parse records first. |
-| origin | 2 | NodeId | proposal | Needed before any record is parsed: "A receiver shall check a bundle's size, the roster membership of its origin and the origin's quota before verifying the bundle's signature." (RSD-EVD-01g). | None. |
-| window | 4 | Window | proposal | One bundle per origin and window (RSD-EVD-01e), checked before parsing records. | None. |
-| first record sequence | 4 | u32 | proposal | Same width as the record sequence number. | None. |
-| last record sequence | 4 | u32 | proposal | Record count = last − first + 1; no separate count. Records are consecutive; every sequence number in the range appears exactly once. | Separate count field: repeats information. |
-| Merkle root | 48 | Hash48 | † | SHA-384. Tree rule in the style of RFC 9162: leaf = SHA-384(0x00 ‖ record), inner node = SHA-384(0x01 ‖ left ‖ right), a lone node is promoted to the next level. | Flat list hash: pull at fragment granularity (RSD-EVD-01d) could not be verified per record. |
-| records | Σ (2 + Lᵢ) | per record a u16 length + canonical record (K7) | proposal | None. | None. |
-| signature | 4627 | Signature | ✔ | Signed message = `"TULPAR/1/bundle"` ‖ all fields except the signature. Matches RSD-EVD-01a "the header, the records and their Merkle root under one signature" literally. | Header and root only: cryptographically sufficient, but the RSD-EVD-01a acceptance test says the signature "covers ... the records". |
+| suite and schema identifier | 1 | SuiteSchemaId | added field / A | Rejection before signature verification (RSD-EVD-01g). | None. |
+| origin | 8 | NodeId | A | Needed before any record is parsed (RSD-EVD-01g). | None. |
+| window | 4 | Window | proposal | One bundle per origin and window (RSD-EVD-01e). | None. |
+| first record sequence | 4 | u32 | proposal | None. | None. |
+| last record sequence | 4 | u32 | proposal | Record count = last − first + 1; no separate count. | Count field: repeats information. |
+| Merkle root | 48 | Hash48 | † | RFC 9162-style tree: leaf = SHA-384(0x00 ‖ record), node = SHA-384(0x01 ‖ left ‖ right), a lone node is promoted. | None. |
+| records | Σ (2 + Lᵢ) | u16 length + canonical record, in sequence order | proposal | None. | None. |
+| signature | 4627 | Signature | ✔ | Signed message = `"TULPAR/1/bundle"` ‖ bundle header (the six fields above). The records are covered through the Merkle root. This is what lets a proof carry "the two conflicting bundle headers with signatures and the Merkle paths of the conflicting records" (V13.2 Table C.4) instead of two whole bundles. | Sign header, records and root (previous draft): a proof would have to carry the whole bundles. RSD-EVD-01a wording: see F18. |
 
-**Why origin, window and sequence appear in both the bundle header and the records.** A record is a content-addressed unit that travels alone: it is pulled by range (RSD-EVD-01d), embedded in proofs (RSD-ORG-03d) and hashed into its identifier with all its fields (RSD-EVD-02a). Its origin, window and sequence number cannot be left out of the record. The bundle header needs the same values before any record is parsed (RSD-EVD-01g, RSD-EVD-01e). Under K14 the decoder checks that every record's origin equals the bundle origin, every record's window equals the bundle window, and the record sequence numbers run from first to last; any mismatch is malformed.
+Origin, window and sequence numbers appear in the bundle header and in each record, because a record travels alone (pull, proofs) and is hashed with all its fields (RSD-EVD-02a), while the bundle header is checked before any record is parsed (RSD-EVD-01g). By K14 the decoder checks that every record's origin and window equal the bundle's and that the sequence numbers run from first to last.
 
-Fixed part (records excluded): 2+2+4+4+4+48+4627 = **4 691 B**. A 5 500 B bundle is four fragments of at most 1 400 B (Section 4.4).
+Fixed part: 1+8+4+4+4+48 = 69 B header + 4627 B signature = **4 696 B**. A 5 500 B bundle is four fragments of at most 1 400 B (Section 4.4).
 
-### 4.3 Digest (RSD-EVD-01c, RSD-EVD-03)
+### 4.3 Digest (RSD-EVD-01c, RSD-EVD-03; V13.2 Table C.4)
 
-A digest is not a record; it is a frame payload under the swarm key (RSD-CRY-03c). The sender is the overlay header's sender field.
+A frame payload under the swarm key (RSD-CRY-03c); the sender is the overlay header's sender.
 
 | Field | Width | Kind | Marker | Rationale | Alternative and why not |
 |---|---|---|---|---|---|
-| window | 4 | Window | added field | RSD-EVD-03c logs the divergence "with both hashes and the window" (F7). | Deriving the window from reception time: reception time must not enter evaluation (RSD-EVD-03b). |
-| origin set | ceil(N/8) | roster bitmap (K10) | proposal | Shows which origins have an entry; entries follow in ascending roster index, so the origin is not repeated in each entry. | u16 origin per entry: repeats position information the order already gives. |
-| per origin: highest record sequence | 4 | u32 | proposal | Same as the record sequence number. | None. |
-| per origin: chain-head prefix | 8 | bytes | ✔ | Table 4.26 "8-byte chain-head prefix". | None. |
-| evidence-set hash | 48 | Hash48 | † | SHA-384. How the evidence-set hash is computed (over sorted record identifiers or as a Merkle root) is a separate decision. | None. |
+| origin set | ceil(N/8) | roster bitmap (K10) | proposal | Which origins have an entry; entries follow in roster order, so no per-entry origin. | 8 B origin per entry: 160 B for 20 origins. |
+| per origin: highest record sequence | 4 | u32 | proposal | Same as rseq. | None. |
+| per origin: chain-head prefix | 8 | bytes | ✔ / A | Table 4.26; V13.2 Table C.4. | None. |
+| evidence-set hash | 48 | Hash48 | † | SHA-384; its computation is defined with the Evidence Store. | None. |
 | state hash | 48 | Hash48 | † | SHA-384. | None. |
-| policy version | 48 | Hash48: the policy hash | proposal | The state hash is meaningful only together with the exact policy that produced it (RSD-EVD-03c divergence logging; E12 version-mismatch test). The policy hash identifies that policy without a separate numbering authority, cannot be confused between two policy sets, and is the same value every record header already carries. | u16 version number: needs a numbering field in the provisioning format that does not exist yet, and two policy sets with the same number would compare equal. See F9. |
-| nodes heard directly | ceil(N/8) | roster bitmap over the fleet list (K10) | proposal | Fixed size, one encoding, no sorting rule. | u8 count + ascending u16 NodeId list: variable length, needs K6 checks; 1 + 2·n bytes (up to 39 B). |
+| policy version | 48 | Hash48: policy-set version hash | A meaning / † width | V13.2 Section 7.2: the policy set is "identified by its version hash"; the record header carries the same value. | u16 number: no source defines one. |
+| nodes heard directly | ceil(N/8) | roster bitmap | proposal | Fixed size, one encoding. | u8 count + 8-byte NodeId list: up to 153 B, needs K6 checks. |
+
+**No window field.** Agents that hold the same evidence derive the same states (RSD-EVD-03a), so the evidence and state hashes can be compared without naming a window; replay protection comes from the swarm-key counter in the overlay header. V13.2 Table 7.4 lists "Counter and window" as the digest's replay protection (D4). **Decision S14.**
 
 Full digest for N = 20 with 20 origins:
 
 | Part | Bytes |
 |---|---|
-| Payload: 4 + 3 + 20·12 + 48 + 48 + 48 + 3 | **394 B** |
-| Frame with the 37 B overlay header | **431 B** |
-| Table 4.29 "about 370 B" | payload +24 B; frame +61 B |
-| Digest share (Table 4.29: 0.26 %), linear scaling | 0.28 % if 370 B was the payload; 0.30 % if it was the whole frame |
+| Payload: 3 + 20·12 + 48 + 48 + 48 + 3 | **390 B** |
+| Frame with the 52 B overlay header | **442 B** |
+| Against Table 4.29 "about 370 B" | payload +20 B; frame +72 B |
+| Digest share (0.26 %), linear scaling | about 0.27 % (370 B as payload) or 0.31 % (370 B as frame) |
 
-### 4.4 Overlay frame header (RSD-NET-01, RSD-CRY-01g)
+### 4.4 Overlay frame header (RSD-NET-01, RSD-CRY-01g; V13.2 Table C.3)
 
-| Field | Width | Kind | Marker | Rationale | Alternative and why not |
-|---|---|---|---|---|---|
-| version | 1 | u8 | proposal | Frame format version. | Version and suite packed 4+4 bits in one byte: needs bit-field parsing and limits each to 16 values. |
-| suite | 1 | u8 crypto suite id | proposal | RSD-CRY-01a "suite identifier". CNSA 2.0 suite = 1; P-384 comparison baseline (Table 2.1) = 2. | None. |
-| frame type | 1 | u8 enum | proposal | Closed set: HELLO, HS1, HS2, HS3, hop ACK, telemetry, digest, bundle fragment, pull, C1, C2, ... | None. |
-| sender | 2 | NodeId | proposal | None. | None. |
-| next hop or broadcast | 2 | NodeId; 0xFFFF = broadcast | proposal | Every frame is a MAC broadcast (RSD-NET-01b); addressing is in the overlay. | Separate broadcast flag: a second field for the same information. |
-| counter | 8 | u64 | ✔ | Table 4.26 "8-byte counter"; input to the IV rule (RSD-CRY-01g) and replay protection. Strictly increasing per sender and key. | None. |
-| message id | 4 | u32, per sender | proposal | Groups fragments into a message; (sender, message id) is unique and cannot wrap in any mission. | u16: wraps after about 1.8 hours at 10 messages per second. |
-| fragment index | 1 | u8 | proposal | A message has at most 255 fragments × 1 400 B = 357 000 B. Largest single messages: G3 proof about 10.5 kB (8 fragments), two-signature command about 9.3 kB (7 fragments). | u16: no RSD message comes near 255 fragments. |
-| fragment count | 1 | u8 | proposal | Same. | None. |
-| tag | 16 | GcmTag (hop or swarm key), or truncated HMAC under the discovery key for HELLO | ✔ | RSD-NET-01f "each carrying its own hop or swarm-key tag". Placed as the header's last field to keep the order of Table 4.26; the authenticated header bytes exclude the tag. | Tag as a trailer after the payload: the usual GCM position, but breaks the order of Table 4.26. |
+| Field | Width | Kind | Marker | Rationale |
+|---|---|---|---|---|
+| version and suite | 1 | SuiteSchemaId | A | Table C.3 "Version and suite (1)". |
+| frame type | 1 | u8 enum | A | Table C.3 "frame type (1)". Closed set: HELLO, HS1, HS2, HS3, hop ACK, telemetry, digest, bundle fragment, pull, TDP data, ACK frame. |
+| sender | 8 | NodeId | A | Table C.3 "sender id (8)". |
+| next hop or broadcast | 8 | NodeId; all-ones = broadcast | A | Table C.3 "next-hop id or broadcast (8)". |
+| counter | 8 | u64 | ✔ / A | "8-byte counter (in clear, covered by the tag)". Strictly increasing per sender and key; IV input (RSD-CRY-01g) and replay protection. |
+| message id | 8 | u64 per sender | A | Table C.3 "message id (8)". |
+| fragment index | 1 | u8 | A | Table C.3 "fragment index and count (1 + 1)". At most 255 × 1 400 B = 357 000 B per message. |
+| fragment count | 1 | u8 | A | Same. |
+| tag | 16 | GcmTag, or truncated HMAC under the discovery key for HELLO | ✔ / A | "hop tag or swarm-key tag (16)". Last header field; the authenticated header bytes exclude it. |
 
-Header: **37 B** (21 B + 16 B tag).
+Header: **52 B**. The 1 400 B of RSD-NET-01f is the fragment's message content; the header is added on top. A full frame is 1 452 B, within the 2 296 B Wi-Fi MTU (1 480 B with UDP and IPv4). This matches "5.5 kB; four fragments" (Table 4.29). The RSD text allows both readings (F3).
 
-**Fragment size.** The 1 400 B of RSD-NET-01f is read as the fragment's message content; the 37 B header is added on top. A full frame is 1 437 B, within the 2 296 B Wi-Fi MTU (1 465 B with UDP and IPv4 headers). This reading matches Table 4.29: "5.5 kB; four fragments" (5 500 / 1 400 = 3.93). The RSD text allows both readings (F3).
+### 4.5 HELLO (RSD-NET-02d, RSD-CRY-03a; V13.2 Table C.3)
 
-### 4.5 HELLO (RSD-NET-02d, RSD-CRY-03a)
+An overlay frame with frame type HELLO and next hop broadcast. Never encrypted or tagged under the swarm key (RSD-CRY-03b, RSD-CRY-03c). The header's tag field carries the truncated HMAC under the discovery key.
 
-HELLO is an overlay frame with frame type = HELLO and next hop = broadcast. It is never encrypted or tagged under the swarm key: components in different epochs must find each other without a common swarm key (RSD-CRY-03b, RSD-CRY-03c). The header's 16 B tag field carries the truncated HMAC under the discovery key. No field is repeated between header and body.
+| Field | Width | Where | Marker | Rationale |
+|---|---|---|---|---|
+| node id | 0 | header sender | derived | The sender field is the node id. |
+| epoch | 12 | body | proposal | EpochRef. |
+| sequence number | 0 | header counter | derived | The header counter is strictly increasing per sender; V13.2 Table 7.4 gives HELLO replay protection as "Sequence number and timestamp". |
+| timestamp | 8 | body | proposal | SimTime. Send time, distinct from the counter's order. |
+| HMAC-SHA-384 (truncated) | 16 | header tag | ✔ / A | Key: discovery key. Input = `"TULPAR/1/hello"` ‖ header without the tag ‖ body; first 16 bytes kept. |
 
-| Field (Table 4.26) | Width | Where | Marker | Rationale | Alternative and why not |
-|---|---|---|---|---|---|
-| node id | 0 | header sender | derived | The header's sender field is the node id. | Repeat in body: two fields for one value. |
-| epoch | 6 | body | proposal | EpochId (Section 3). | 48 B epoch hash: see "Epoch identifier width". |
-| sequence number | 0 | header counter | derived | The header's 8-byte counter is strictly increasing per sender and is already the frame's sequence; a separate HELLO sequence would repeat it. HMAC replay protection uses it. | u32 in the body: a second sequence for the same frame. |
-| timestamp | 8 | body | proposal | SimTime, integer ns. Distinct from the counter: it states send time, the counter states order. | u32 ms: second time unit. |
-| HMAC-SHA-384 (truncated) | 16 | header tag | ✔ | Table 4.26 "truncated to 16 B"; key: discovery key (RSD-CRY-03a). Input = `"TULPAR/1/hello"` ‖ header without the tag ‖ body; the first 16 bytes of the HMAC output are kept. | None. |
+Size: 52 + 20 = **72 B**. Table 4.29 assumes 48 B: +24 B; HELLO share from 0.32 % to about 0.48 % by linear scaling (F4).
 
-Size: 37 B header + 14 B body = **51 B**. Table 4.29 assumes 48 B; the HELLO share rises from 0.32 % to about 0.34 % by linear scaling (calculation; F4).
+### 4.6 Handshake HS1 / HS2 / HS3 (RSD-NET-02a, RSD-CMC-04a; V13.2 Section 7.3; V13.3 C07)
 
-### 4.6 Handshake HS1 / HS2 / HS3 (RSD-NET-02a, RSD-CMC-04a)
+V13.2 Section 7.3: "The initiator sends a nonce and a fresh ML-KEM-1024 encapsulation key. The responder encapsulates a shared secret, signs the transcript with ML-DSA-87 and adds a key-confirmation code. The initiator signs the transcript and adds its own key confirmation." V13.3 C07: "In HS2 and HS3 each side adds a quote". The suite id of Table 4.26 is carried by the overlay header's version-and-suite byte (derived) and covered by the transcript signature.
 
-Table 4.26 lists the fields of the three messages together; **which field goes into which message is not in the RSD (S6, F17).** Proposal:
-
-| Message | Fields (in order) | Width | Fragments of ≤ 1 400 B |
+| Message | Fields (in order) | Width | Fragments |
 |---|---|---|---|
-| HS1 | suite id (1), nonce (32), ML-KEM encapsulation key (1568 †) | 1 601 B | 2 |
-| HS2 | suite id (1), nonce (32), ML-KEM ciphertext (1568 †), transcript signature (4627 †), key confirmation (48), boot quote (4676) | 10 952 B | 8 |
-| HS3 | transcript signature (4627 †), key confirmation (48), boot quote (4676) | 9 351 B | 7 |
+| HS1 | nonce (32), ML-KEM encapsulation key (1568) | 1 600 B | 2 |
+| HS2 | nonce (32), ML-KEM ciphertext (1568), transcript signature (4627), key confirmation (48), quote (4676) | 10 951 B | 8 |
+| HS3 | transcript signature (4627), key confirmation (48), quote (4676) | 9 351 B | 7 |
 
 | Field | Width | Marker | Rationale | Alternative and why not |
 |---|---|---|---|---|
-| nonce | 32 | proposal | 256 bits, the security level of CNSA 2.0; the quote also binds it (RSD-CMC-04a). | 16 B: 128 bits, below the suite's security level for a value an attacker may try to repeat. |
-| key confirmation | 48 | proposal | Full HMAC-SHA-384 (RSD-CRY-01d). | 16 B truncated: weaker for the one value that proves both ends hold the session key. |
-| suite id | 1 | proposal | Same codes as the overlay header's suite. Sent in HS2 as well, so the responder commits to the suite it accepted. | None. |
-| boot quote | 1 + 48 + 4627 = 4676 | proposal, assumption | build id (u8: E, I, R; RSD-CMC-05b), boot measurement (SHA-384, 48 B), quote signature. The session nonce is signed but not sent again (no repetition). **Assumption:** the RSD gives no separate algorithm for the attestation key, so the quote signature is ML-DSA-87 by RSD-CRY-01b ("every other signed record"), 4627 B (F2). | None. |
+| nonce | 32 | proposal | 256 bits, the suite's security level; the quote binds it (RSD-CMC-04a). | 16 B: below the suite's level. |
+| key confirmation | 48 | proposal | Full HMAC-SHA-384 (RSD-CRY-01d). | 16 B truncated: weaker for the value that proves key possession. |
+| quote | 1 + 48 + 4627 = 4676 | proposal, assumption | build id (BuildId), boot measurement (SHA-384), attestation signature; the session nonce is signed, not sent again (RSD-CMC-04a; V13.3 C19 "Quote: boot measurement, build id, session nonce, attestation-key signature"). **Assumption:** attestation signature is ML-DSA-87 (RSD-CRY-01b; no source names another algorithm) (F2). | None. |
 
-Total: 21 904 B per handshake (with quotes, ML-DSA-87 assumed). Table 4.29 assumes about 12.4 kB = 1568 + 1568 + 2 × 4627 = 12 390 B, without the quotes. Effect on the handshake share: 0.58 % → about 1.03 % (calculation; F1).
+Total **21 902 B** per handshake. Table 4.29: 12 390 B (1568 + 1568 + 2 × 4627; V13.2 Section 7.3: "about 2⋅1568+2⋅4627 ≈ 12.4 kB plus small fields"), without quotes. Without quotes this layout is 12 550 B (+160 B: nonces 64, key confirmations 96). Handshake share from 0.58 % to about 1.03 % (F1).
 
-### 4.7 Link-state advertisement (RSD-NET-02)
+### 4.7 Link-state advertisement (RSD-NET-02; V13.2 Table 5.2)
 
-Common record header + body (I2).
-
-| Field | Width | Kind | Marker | Rationale | Alternative and why not |
-|---|---|---|---|---|---|
-| sequence number | 4 | u32 | proposal | Strictly increasing over LSAs (RSD-NET-02e); not the record sequence number, which counts all records of the origin. | Using the record sequence number: Table 4.26 lists the field separately, and RSD-NET-02e compares LSAs with each other. |
-| quantized position | 12 | Position | proposal | Section 3. | None. |
-| position source | 1 | PositionSource | ✔ set | RSD-OBS-03a. | None. |
-| error bound | 2 | ErrorBound | proposal | Section 3. | None. |
-| neighbor list | 1 + 8·n | u8 count + {neighbor NodeId 2, ETX forward 2, ETX reverse 2, age 2}, ascending NodeId, n ≤ 19 | proposal | At most 19 neighbors in a 20-node fleet. age: u16 milliseconds, saturating at 65 535; the measurement window is 10 s (RSD-NET-02a). | u64 ns for age: resolution and range far beyond a 10 s window. |
-
-Carries no backhaul information (RSD-HOT-04b).
-
-### 4.8 Epoch announcement and revocation record (RSD-CRY-03, RSD-ORG-03d)
-
-Common record header + body. A revocation is the same type with the "excluded" fields present.
-
-| Field | Width | Kind | Marker | Rationale | Alternative and why not |
-|---|---|---|---|---|---|
-| epoch id | 0 | EpochId | derived | = (header origin, header record sequence number) by the definition of Section 3. | Carry it: repeats the header. |
-| parent epochs | 1 + 6·n | u8 count + EpochId list, K6, 1 ≤ n ≤ 2 | proposal | Two parents on a merge (RSD-CRY-03i). | n ≤ 4: a simultaneous merge of three components is not defined in the RSD. **Bound needs approval (S3).** |
-| recipient list | ceil(N/8) | roster bitmap | proposal | K10. | None. |
-| hash of the new key | 48 | Hash48 | † | SHA-384 (RSD-CRY-03d). | None. |
-| producer | 0 | NodeId | derived | = header origin. | Carry it: repeats the header. |
-| excluded certificate id | 1 + 0/2 | optional CertIndex | proposal | Present only in a revocation. | None. |
-| embedded proof | 0 / 4 + L | optional, u32 length + proof encoding | proposal | **The proof's own format (the four G3 kinds, RSD-SEC-01d) is not in Table 4.26 (S8, F13).** | None. |
-
-### 4.9 Load receipt (RSD-ORG-05)
+Common record header + body. All sizes in this table come from V13.2 Table 5.2.
 
 | Field | Width | Marker | Rationale |
 |---|---|---|---|
-| vehicle id | 2 | proposal | NodeId. |
-| mission manifest hash | 48 | † | SHA-384; the mission id is the manifest hash (RSD-HOT-02d). |
+| lsa_seq | 4 | A | "Strictly increasing; an older or equal sequence number is rejected" (RSD-NET-02e). Part of the ukey (origin, lsa_seq). |
+| pos, pos_src, pos_err | 12 + 1 + 2 | A | Position, PositionSource, ErrorBound (Section 3). |
+| n | 1 | A | Number of neighbor entries; n ≤ 19 (proposal bound: 20-node fleet). |
+| nbr[i] | n × 14 | A | Neighbor NodeId (8), ETX forward and reverse as measured by the origin (2 + 2, Etx), age of the last measurement (2: proposal unit u16 ms, saturating; the measurement window is 10 s and an edge older than 60 s is deleted, V13.2 Section 5.4). Ascending NodeId. |
+
+No backhaul information (RSD-HOT-04b).
+
+### 4.8 Epoch announcement and revocation record (RSD-CRY-03, RSD-ORG-03d; V13.2 Table C.4, Section 7.7)
+
+Common record header + body.
+
+| Field | Width | Marker | Rationale |
+|---|---|---|---|
+| epoch id | 4 | proposal | Epoch number (u32) under option E1/E3; the full EpochRef is (header origin, epoch number). Under E4 it is derived (width 0). |
+| parent epochs | 1 + 12·n | proposal | u8 count + EpochRef list, K6, 1 ≤ n ≤ 2 (two on a merge, RSD-CRY-03i). **Bound: S3.** |
+| recipient list | ceil(N/8) | proposal | Roster bitmap. |
+| hash of the new key | 48 | † | SHA-384 (RSD-CRY-03d). |
+| producer | 0 | derived | = header origin. V13.2 Table C.4 lists "producer id" (no repetition). |
+| excluded certificate id | 1 + 0/8 | A width | Optional CertId; present only in a revocation. |
+| embedded proof | 0 / 4 + L | proposal | Optional, u32 length + proof (Section 4.9). |
+
+### 4.9 Proof (RSD-SEC-01d; V13.2 Table C.4, Table 8.2; V13.3 C08)
+
+Not in Table 4.26 (F13), but needed by the revocation record. V13.2 Table C.4: "The two conflicting bundle headers with signatures and the Merkle paths of the conflicting records; or the forbidden-type record; or the invalid revocation record". V13.3 C08 and RSD-SEC-01d add the canonically malformed signed record. A proof is also a record type of its own (V13.2 Table 8.2: "Content-addressed").
+
+A **signed inclusion** shows that a record was signed: bundle header (69 B), bundle signature (4627 B), the record (u16 length + bytes) and its Merkle path (u8 count + 48 B per level; the leaf index is rseq − first, derived).
+
+| Field | Width | Marker | Rationale |
+|---|---|---|---|
+| kind | 1 | proposal codes | u8: 1 equivocation, 2 forbidden type, 3 invalid revocation record, 4 canonically malformed signed record (RSD-SEC-01d). |
+| inclusions | 1 or 2 signed inclusions | A content / proposal layout | Kind 1: two, at one chain position or under one semantic key, in ascending record-identifier order. Kinds 2 to 4: one. For kind 4 the record bytes are carried as signed, even though they do not parse. |
+
+An equivocation proof with two 300 B records and five-level paths is about 2 × (69 + 4627 + 302 + 241) ≈ 10.5 kB, in line with Section 4.10 of the RSD ("a G3 proof of about 10.5 kB").
+
+### 4.10 Load receipt (RSD-ORG-05; V13.2 Table C.4; V13.3 C07, C19)
+
+| Field | Width | Marker | Rationale |
+|---|---|---|---|
+| vehicle id | 8 | A | NodeId. |
+| mission manifest hash | 48 | † | SHA-384; covers the schema version (V13.3 C07). |
 | device envelope hash | 48 | † | SHA-384 (RSD-ORG-05b). |
-| boot quote | 1 + 48 + 4627 | proposal, assumption | Same structure as in Section 4.6; before the mission the nonce is the mission manifest hash, which is already in the receipt and is not repeated. |
-| signature | 4627 | † | ML-DSA-87 (RSD-CRY-01b). |
+| boot quote | 4676 | proposal, assumption | As in Section 4.6 (V13.3 C19 "Boot quote of the loaded image"); the nonce is the mission manifest hash, already in the receipt. |
+| signature | 4627 | † | ML-DSA-87. |
 
-### 4.10 Operator command (RSD-HOT-02, RSD-HOT-06)
+### 4.11 Operator command (RSD-HOT-02, RSD-HOT-06; V13.3 C10, C19; HL-41)
 
-Signed with operator keys and not part of a vehicle chain, so it carries no common record header. Content hash (RSD-HOT-06g) = SHA-384(`"TULPAR/1/command"` ‖ all fields except the signatures).
+Signed by operators, not part of a vehicle chain, so no common record header. Content hash (RSD-HOT-06g) = SHA-384(`"TULPAR/1/command"` ‖ all fields except the signatures). Presence of duration, validity and precondition follows the type (V13.3 C19), so no presence flag is sent except for ABORT's validity.
 
-| Field | Width | Kind | Marker | Rationale | Alternative and why not |
-|---|---|---|---|---|---|
-| mission id | 48 | Hash48 | † | "the mission identifier, which is the mission manifest hash" (RSD-HOT-02d). | None. |
-| command id | 6 | CommandId | proposal | Section 3. | None. |
-| type | 1 | u8: 1 ABORT, 2 HOLD, 3 RESUME, 4 PRIORITY, 5 SUPPORT | ✔ set / proposal codes | RSD-HOT-02a: exactly five types. ABORT's immediate or recall form is a parameter. | Two type codes for ABORT: violates "exactly five" of RSD-HOT-02a. |
-| target | ceil(N/8) | roster bitmap | proposal | RSD-HOT-06e: "target does not include it". | Group code: cannot target a single vehicle. |
-| parameters | 2 + L | u16 length + type-specific structure | proposal | ABORT: u8 form (0 immediate, 1 recall). HOLD and RESUME: empty. **PRIORITY and SUPPORT parameters are not in the RSD (S9, F11).** | None. |
-| issue window | 4 | Window | proposal | None. | None. |
-| duration | 2 | u16 seconds | proposal | HOLD: default 600 s, at most 1800 s (RSD-HOT-02e); 0 and values above 1800 are malformed. The RSD states seconds. | Window count: the RSD defines the value in seconds. |
-| validity | 2 | u16 seconds | proposal | RESUME default 120 s (RSD-HOT-02f). | None. |
-| precondition | 1 | u8 predicate code | proposal | "closed set of predicates over the evidence" (RSD-HOT-02f). **The set is not defined in the RSD (S9, F11).** | None. |
-| basis | 1 + 48·n | u8 count + RecordId list, K6, n ≤ 4 | proposal, assumption | **"basis" is not defined in the RSD (F11);** assumption: the evidence records the operator relied on. | None. |
-| signatures | 1 + 4629·n | u8 count (1 or 2) + {CertIndex 2, Signature 4627}, ascending CertIndex, distinct certificates | ✔ / † | RSD-HOT-02b/c, RSD-HOT-06c. | None. |
+| Field | Width | Marker | Rationale and source |
+|---|---|---|---|
+| suite and schema identifier | 1 | added field / A | RSD-CMC-02c. |
+| mission id | 48 | † | Mission manifest hash (RSD-HOT-02d). |
+| command id | 5 | proposal | CommandId. |
+| type | 1 | ✔ set / proposal codes | 1 ABORT, 2 HOLD, 3 RESUME, 4 PRIORITY, 5 SUPPORT (RSD-HOT-02a). |
+| target | 1 + v | A kinds / proposal layout | Kind u8 + value, by V13.3 Table 11.12: ABORT "Vehicle, group or collective"; HOLD and RESUME "Group or sector"; PRIORITY "Contact or sector"; SUPPORT "Requesting and helping group". Values: vehicle NodeId (8), group u8, collective (0), sector u8, contact id (16, proposal), group pair (2). A kind not allowed for the type is malformed. |
+| parameters | 0 or 1 | A / proposal | PRIORITY: importance class u8 ("Sets the importance class I(n) within the policy range", V13.3 Table 11.12). Other types: none (ABORT's form is the presence of validity). SUPPORT's request content is not defined (F11). |
+| issue window | 4 | proposal | Window. |
+| duration | 2 (HOLD only) | proposal | u16 seconds; 1 to 1800 (RSD-HOT-02e). |
+| validity | 2 (RESUME); 1 + 0/2 (ABORT) | A presence / proposal width | u16 seconds. RESUME: required (RSD-HOT-02f). ABORT: present = immediate, absent = recall (V13.3 "Final clarifications"; RSD-HOT-01j, RSD-HOT-01k). |
+| precondition | 1 (RESUME only) | proposal | u8 predicate code. **The predicate set is defined in no source (F11).** |
+| basis | 48 | A meaning / † width | "the identifier of the summary the operator saw" (V13.3 C10; HL-41 "basis (summary id)"): the RecordId of the Group Status Summary record (D13). |
+| signatures | 1 + 4635·n | A / ✔ | u8 count (1 or 2) + {operator CertId 8, Signature 4627}, ascending CertId, distinct certificates; each signature over the canonical encoding of all other fields (HL-41; RSD-HOT-06c). |
 
-### 4.11 Command receipt (RSD-HOT-01m)
+### 4.12 Command receipt (RSD-HOT-01m; V13.3 C19)
 
-Common record header + body; carried in the producer's next bundle.
+Common record header + body; carried in the vehicle's next bundle.
 
 | Field | Width | Marker | Rationale |
 |---|---|---|---|
-| command id | 6 | proposal | CommandId. |
+| command id | 5 | proposal | CommandId. |
 | vehicle | 0 | derived | = header origin. |
-| result | 1 | ✔ set / proposal codes | u8: 1 APPLIED, 2 VOID, 3 REJECTED. |
+| result | 1 | ✔ set / proposal codes | 1 APPLIED, 2 VOID, 3 REJECTED. |
 | window | 0 | derived | = header window. |
 
-Proposal: also carry the command's content hash (48 B), because RSD-HOT-06g distinguishes copies by command id and content hash. This would be an added field not in Table 4.26; **decision needed (S10).**
+Proposal: add the command's content hash (48 B), because RSD-HOT-06g distinguishes copies by command id and content hash; this would be an added field (**S10**).
 
-### 4.12 Group Status Summary (RSD-HOT-03)
+### 4.13 Group Status Summary (RSD-HOT-03; V13.3 C10, C19; HL-11, HL-15)
 
-Common record header + body; carried in the producer's bundle (RSD-HOT-03c). A summary covers only the members of the producer's own group in that component (RSD-HOT-03a). **The meaning and unit of most of its fifteen fields are not defined in the RSD (F12);** the rows below propose widths only. The list bounds for backlog items, contacts and alerts are proposals awaiting Berra's approval.
-
-| Field | Width | Marker | Rationale and assumption |
-|---|---|---|---|
-| group | 0 | derived | = the roster group of the producer (header origin); a summary covers the producer's own group (RSD-HOT-03a). |
-| producer, window | 0 | derived | = header origin, header window. |
-| members covered with compact positions | 1 + 23·n | proposal | n ≤ group size in the roster; {vehicle 2, position 12 (Position, altitude included), time of fix 8 (SimTime), security state 1} (RSD-HOT-03j). "Vehicles per security state" is carried as a per-member state, not as a second list. |
-| energy | n | proposal, assumption | u8 percent per member, in member order. **No energy model in the RSD.** |
-| channels OK per modality | 3 | proposal | u8 count for EO, IR and radar. |
-| coverage | 2 | proposal, assumption | u16 per mille. **Not defined in the RSD.** |
-| regime per sector | 1 + s | proposal | u8 count + u8 (1 S1, 2 S2, 3 S3) (RSD-OBS-04a); three sectors in the reference configuration. |
-| top backlog items | 1 + 49·k | proposal (Berra) | k ≤ 5; {RecordId 48, status 1}. **The bound is not in the RSD.** |
-| contacts | 1 + 29·c | proposal (Berra) | c ≤ 16; {contact id 16, Position 12, status 1}. **Contact identifier is not in the RSD.** |
-| alerts | 1 + 3·a | proposal (Berra) | a ≤ 8; {code 1, NodeId 2}. **Alert codes are not in the RSD.** |
-| jamming level | 1 | proposal | u8 0–4 = J0–J4 (Table 4.19). |
-| commands applied | 1 + 6·m | proposal | m ≤ 8; CommandId list. |
-
-Size at the proposed bounds, for the reference groups A (6 vehicles), B (7) and C (6), with the whole group in one component (calculation):
-
-| Group | Members | Body | Record with the 134 B common header | Against "about 1 kB" (Table 4.29) |
-|---|---|---|---|---|
-| B | 7 | (1 + 23·7) + 7 + 3 + 2 + (1 + 3) + (1 + 49·5) + (1 + 29·16) + (1 + 3·8) + 1 + (1 + 6·8) = **964 B** | 1 098 B | body −36 B; record +98 B |
-| A, C | 6 | **940 B** | 1 074 B | body −60 B; record +74 B |
-
-Table 4.29 does not state whether "about 1 kB" includes the record header; the share stays within its "≤ 0.4 % (worst-case estimate)" by linear scaling (about 0.44 % if the 1 kB was the full record and 1 098 B is used; F15).
-
-### 4.13 GCS service certificate (RSD-HOT-05, RSD-HOT-06d)
-
-| Field | Width | Marker | Rationale | Alternative and why not |
-|---|---|---|---|---|
-| role | 1 | proposal | u8: 1 vehicle, 2 operator, 3 gcs. | ASCII "gcs": variable length and canonicity problems (K2). |
-| mission id | 48 | † | RSD-HOT-02d. | None. |
-| ML-KEM-1024 public key | 1568 | † | Table 2.1. | None. |
-| ML-DSA-87 public key | 2592 | † | Table 2.1. | None. |
-| validity | 8 | proposal | not before and not after, two u32 Window values. | SimTime: window resolution is enough for a certificate and matches the window checks of RSD-HOT-05. |
-| headquarters root signature | 4627 | † | ML-DSA-87. | None. |
-
-### 4.14 Backhaul hello (RSD-HOT-04, RSD-HOT-07)
-
-Unsigned and never forwarded into the mesh.
+Common record header + body; carried in the producer's next signed bundle (RSD-HOT-03c). Covers the members of the producer's own group in that component (RSD-HOT-03a). Content from V13.3 Section 11.10 and Table C.5 with HL-11 and HL-15. The list bounds marked "Berra" await Berra's approval.
 
 | Field | Width | Marker | Rationale |
 |---|---|---|---|
-| sender | 2 | proposal | NodeId; 0xFFFF = headquarters. |
-| link id | 1 | proposal | u8; at most a few backhauls per gateway. |
+| group | 0 | derived | Roster group of the producer (header origin). |
+| producer, window | 0 | derived | Header origin and window. |
+| members covered, with compact positions | 1 + 29·n | A content / proposal widths | n ≤ group size in the roster. Per member: vehicle NodeId 8, Position 12, time of fix SimTime 8 (HL-15: "vehicle id, position, altitude, time of fix"), security state u8 (1 Trusted, 2 Watch, 3 Restricted, 4 Probation, 5 Quarantined). "Vehicles per security state" is carried by the per-member state, not by a second list. |
+| energy minimum and median | 2 | A content / proposal unit | Two u8 values in percent of the vehicle's usable energy (V13.3: "energy (minimum and median)"). No source gives a unit; percent keeps vehicles of different capacity comparable. Alternative: u16 Wh, which needs a per-type capacity the mission configuration does not define. |
+| channels OK per modality | 3 | A content / proposal | u8 count each for EO, IR, radar. |
+| coverage and regime per sector | 1 + 4·s | A content / proposal | u8 count + {sector u8, coverage u16 per mille of the sector's cells observed, regime u8 (1 S1, 2 S2, 3 S3; RSD-OBS-04a)}. V13.3: "sector coverage; evidence capacity regime of each sector". |
+| top backlog items | 1 + 49·k | A bound / proposal layout | k ≤ 3: "the three highest Verification Backlog items" (V13.3). Per item: item_id 48 († SHA-384; V13.2 Table 11.7 "Hash of (contact id, attribute, need type, region cell, window)"), observation status u8. |
+| contacts by status | 7 | A content / proposal | u8 count per observation status (seven statuses, RSD Table 4.7). |
+| most important contacts | 1 + 29·c | A content / proposal (Berra) | c ≤ 16; {contact id 16 (proposal; no source sizes it), Position 12, status u8}. V13.3: "contacts by status, with the most important ones". |
+| alerts | 1 + Σ | A types / proposal (Berra) | a ≤ 8. Types from V13.3 Section 11.10: 1 G3 event, 2 Safe mode, 3 vehicle Alone (each + vehicle NodeId 8 → 9 B), 4 standing order close to firing (+ standing-order index u8 → 2 B). The jamming level and commands applied are separate fields. |
+| jamming level | 1 | A content / proposal codes | u8 0 to 4 = J0 to J4 (Table 4.19). |
+| commands applied by its members | 1 + 5·m | A content / proposal (Berra) | m ≤ 8; CommandId list. |
+
+V13.3 Section 11.10 also lists "open repairs and contracts"; neither Table 4.26 nor V13.3 Table C.5 has it, so it is left out (D5).
+
+Size at the proposed bounds, all alerts of type 1 to 3, three sectors (calculation):
+
+| Group | Members | Body | Record with the 131 B header | Against "about 1 kB" (Table 4.29) |
+|---|---|---|---|---|
+| B | 7 | (1 + 29·7) + 2 + 3 + (1 + 4·3) + (1 + 49·3) + 7 + (1 + 29·16) + (1 + 9·8) + 1 + (1 + 5·8) = **957 B** | 1 088 B | body −43 B; record +88 B |
+| A, C | 6 | **928 B** | 1 059 B | body −72 B; record +59 B |
+
+### 4.14 GCS service certificate (RSD-HOT-05, RSD-HOT-06d; HL-44)
+
+| Field | Width | Marker | Rationale |
+|---|---|---|---|
+| role | 1 | proposal codes | u8: 1 vehicle, 2 operator, 3 gcs (HL-44: role "gcs"; V13.3 C19: role "operator"). |
+| mission id | 48 | † | RSD-HOT-02d. |
+| ML-KEM-1024 public key | 1568 | † | Table 2.1. |
+| ML-DSA-87 public key | 2592 | † | Table 2.1. |
+| validity | 8 | proposal | Two Window values, not before and not after. |
+| headquarters root signature | 4627 | † | ML-DSA-87. |
+
+### 4.15 Backhaul hello (RSD-HOT-04, RSD-HOT-07; HL-38)
+
+Unsigned; sent by each end once per window; never forwarded into the mesh.
+
+| Field | Width | Marker | Rationale |
+|---|---|---|---|
+| sender | 8 | A | NodeId of the gateway; all-zero = headquarters. |
+| link id | 1 | proposal | u8; a gateway has one backhaul (RSD-HOT-04c). |
 | window | 4 | proposal | Window. |
 | sequence | 4 | proposal | u32. |
 
-### 4.15 LSC beacon
+### 4.16 LSC beacon
 
 Out of scope: it stays in the LSC's own source tree (RSD-SAF-02d, RSD-SAF-02f).
 
 ## 5. Formats needed but not in Table 4.26
 
-These formats are not designed here; each should become its own issue (F13).
-
-| Format | Source | Note |
+| Format | Defined in | Note |
 |---|---|---|
-| GCS receipt | RSD-HOT-05f, RSD-HOT-05h | "names the mission, the record identifier and the GCS window", signed with the GCS service key. |
-| G3 proof encoding | RSD-SEC-01d, RSD-ORG-03d | Four proof kinds; embedded in the revocation record. |
-| Hop acknowledgment, telemetry, pull, C1 and C2 payloads | RSD-NET-01d, Table 4.29 | Overlay frame types without body formats. |
-| Provisioning package (roster, certificate, policy set, exclusion list) | RSD-ORG-05, RSD-CRY-02b | None. |
-| Record type bodies (observation, task, bid, lease, contract, finding, etc.) | Sections 4.2, 4.3, 4.6 | Not in Table 4.26. |
+| GCS receipt | RSD-HOT-05f ("names the mission, the record identifier and the GCS window"); HL-44 | Not designed here. |
+| Proof | V13.2 Table C.4; RSD-SEC-01d | Designed in Section 4.9 because the revocation record embeds it. |
+| Hop ACK, telemetry, TDP header, ACK frame, PERSISTED list | V13.2 Table C.3 | Separate issues. |
+| Operator certificate, provisioning package | V13.3 C19; V13.2 Table 7.5 | Separate issues. |
+| Record type bodies (observation, task, bid, lease, contract, finding, etc.) | V13.2 Tables C.1, C.2, C.5 | Separate issues. |
 
 ## 6. Code approach (after approval)
 
-RSD-CRY-02e: *"The canonical-encoding validator shall be generated from the same specification as the record decoders and be identical in every build."* This asks for decoders and the validator to be generated from one machine-readable specification. Proposal: once approved, the tables of this document become a specification such as `docs/design/encodings.json`, and the codecs under `common/formats/` are generated from it rather than written by hand. **Decision needed (S11).** If they are written by hand, the move to a generator becomes a separate issue.
+RSD-CRY-02e: *"The canonical-encoding validator shall be generated from the same specification as the record decoders and be identical in every build."* Proposal: once approved, the tables here become a machine-readable specification (for example `docs/design/encodings.json`), and the codecs under `common/formats/` are generated from it. **S11.**
 
 ## 7. Decisions needing approval
 
 | No | Decision | Proposal |
 |---|---|---|
-| S1 | Is the record identifier carried on the wire? | No; derived by K13 (see F8). |
-| S2 | Meaning and width of the uniqueness key | Take the meaning from the architecture document; width 16 B. |
-| S3 | List bounds (parents 16, tags 8, parent epochs 2, basis 4; GSS bounds: Berra) | The values in this document; all proposals. |
-| S4 | Digest "policy version" | The 48 B policy hash (see F9). |
-| S5 | HELLO sequence number | Carried by the header counter; not repeated in the body (51 B). |
-| S6 | Distribution of fields over HS1, HS2 and HS3 | The table of Section 4.6. |
-| S7 | Boot-quote signature algorithm | ML-DSA-87 assumed (RSD-CRY-01b); see F2. |
-| S8 | Embedded proof encoding | Separate issue. |
-| S9 | PRIORITY and SUPPORT parameters, RESUME precondition set | Separate issue; not defined in the RSD. |
-| S10 | Add the command content hash to the command receipt? | Yes (added field). |
-| S11 | Codecs written by hand or generated from a specification (RSD-CRY-02e)? | Generated from a specification. |
-| S12 | Position: local ENU, i32 cm | Yes. |
-| S13 | "Nodes heard directly": fleet-list bitmap or identifier list? | Fleet-list bitmap. |
+| S1 | Record identifier on the wire? | No; derived (D1, F8). |
+| S3 | List bounds: parents 16, parent epochs 2, LSA neighbors 19; GSS contacts 16, alerts 8, commands 8 (Berra) | As listed; all proposals. |
+| S5 | HELLO node id and sequence number | Carried by header sender and counter. |
+| S6 | Distribution of fields over HS1 to HS3 | As in Section 4.6 (from V13.2 Section 7.3 and V13.3 C07). |
+| S7 | Quote signature algorithm | ML-DSA-87 assumed (F2). |
+| S10 | Command content hash in the command receipt | Yes (added field). |
+| S11 | Codecs generated from a specification (RSD-CRY-02e) | Yes. |
+| S12 | Positions: local ENU, i32 cm, for every format | Yes (D9). |
+| S13 | Nodes heard directly, recipient list and origin set as roster bitmaps | Yes (D8). |
+| S14 | No window in the digest | Yes, as decided (D4). |
+| S15 | Epoch uniqueness rule (Özgür) | E1 + E3 recommended (Section 3). |
+| S16 | Bundle signature over header and Merkle root | Yes (F18). |
+| S17 | Units: energy in percent, coverage in per mille, LSA age in ms, ETX Q8.8 | Yes. |
+| S18 | Basis and GCS receipt name the summary's RecordId, not the bundle hash of HL-12 | Yes (D10). |
 
 ## 8. RSD findings
 
-Places in RSD v1.1 found wrong, ambiguous or outdated while freezing the encodings. Each finding quotes the RSD verbatim, gives the reason and proposes a correction. The RSD stays binding until a new version changes it; the corrections are tracked in the RSD correction issue linked to TULPAR-160. All numbers are calculations, not measurements; channel shares are scaled linearly from the table's own figures, with per-frame overhead not modelled separately.
+Places in RSD v1.1 found wrong, ambiguous or outdated. Each quotes the RSD verbatim, gives the reason and proposes a correction. The RSD stays binding until a new version changes it; the corrections are tracked in TULPAR-479. Numbers are calculations; shares are scaled linearly from the table's own figures, with per-frame overhead not modelled separately.
 
-### Summary of the effect on Table 4.29
+### Effect on Table 4.29
 
 | Row | RSD v1.1 | With the frozen encodings (calculation) |
 |---|---|---|
-| HELLO | 48 B, 0.32 % | 51 B, about 0.34 % |
-| Hop handshakes | about 12.4 kB, 0.58 % | 21 904 B, about 1.03 % (ML-DSA-87 quote assumed) |
-| Digests | about 370 B, 0.26 % | 394 B payload / 431 B frame, about 0.28–0.30 % |
-| Control plane (HELLO, handshakes) | 0.90 % | about 1.37 % (hypothesis threshold 5 % unaffected) |
-| Evidence plane (bundles, pull, digests) | 4.10 % | about 4.12–4.14 % (cap 10 % unaffected) |
-| Total | ≤ 7.7 % | about 8.2 % |
+| HELLO | 48 B, 0.32 % | 72 B, about 0.48 % |
+| Hop handshakes | about 12.4 kB, 0.58 % | 21 902 B, about 1.03 % (ML-DSA-87 quote assumed) |
+| Digests | about 370 B, 0.26 % | 390 B payload / 442 B frame, about 0.27–0.31 % |
+| Control plane | 0.90 % | about 1.51 % (hypothesis threshold 5 %) |
+| Evidence plane | 4.10 % | about 4.11–4.15 % (cap 10 %) |
+| Total | ≤ 7.7 % | about 8.3–8.4 % |
 
 ### Findings
 
 | No | Kind | RSD text (verbatim) | Reason | Proposed correction |
 |---|---|---|---|---|
-| F1 | Outdated | Table 4.29: "Hop handshakes \| 190 pairs, about 12.4 kB per handshake, every 600 s \| 0.58 %". RSD-CMC-04a: "In handshake messages HS2 and HS3, each side shall include a quote, signed by its key provider's attestation key, over the boot measurement of the loaded agent image, the build identifier and the session nonce." | 12.4 kB = 1568 + 1568 + 2 × 4627 = 12 390 B: one encapsulation key, one ciphertext and two transcript signatures. The two quotes of RSD-CMC-04a are not counted. With the frozen layout and ML-DSA-87 quotes (F2), a handshake is 21 904 B. | Table 4.29: "190 pairs, about 21.9 kB per handshake (two boot quotes included), every 600 s \| about 1.03 %"; update the control-plane line and the total (summary above), marked as calculation. |
-| F2 | Ambiguous | RSD-CMC-04a: "a quote, signed by its key provider's attestation key". Table 2.1 lists no attestation algorithm. RSD-CRY-01b: "Bundles, handshake transcripts, link-state advertisements and every other signed record shall be signed with ML-DSA-87." | The quote's signature algorithm, and so the quote size, is not stated. RSD-CRY-01b suggests ML-DSA-87 but does not name quotes. | State in RSD-CMC-04a or Table 2.1: "The attestation key is an ML-DSA-87 key; a quote signature is 4627 B." |
-| F3 | Ambiguous | RSD-NET-01f: "The overlay shall split every message into fragments of at most 1400 bytes, each carrying its own hop or swarm-key tag." Table 4.29: "A 1400-byte fragment takes 1.99 ms." and "5.5 kB; four fragments". | It is not stated whether 1400 bytes includes the overlay frame header and tag. With the header included, a 5 500 B bundle is five fragments, which contradicts "four fragments"; the frozen reading is 1400 bytes of message content plus a 37 B header. It is also not stated whether the 1.99 ms airtime includes the overlay header; if not, the bundle and pull shares rise by about 1437/1400 (3.13 % → about 3.21 %, 0.63 % → about 0.65 %). | RSD-NET-01f: "...into fragments of at most 1400 bytes of message content, each sent in one overlay frame that adds the frame header and its own hop or swarm-key tag." Table 4.29: state which headers the 1.99 ms includes. |
-| F4 | Outdated | Table 4.29: "HELLO \| Every 2 s per node; 48 B \| 0.32 %". | The frozen HELLO is 51 B: 37 B overlay header (including the 16 B HMAC in the tag field) + 6 B epoch + 8 B timestamp. | Table 4.29: "Every 2 s per node; 51 B \| about 0.34 %". |
-| F5 | Outdated | Table 4.29: "Digests \| Every node every window; about 370 B \| 0.26 %". | The frozen digest for N = 20 is 394 B payload, 431 B with the overlay header. The table does not say which it counts. | Table 4.29: "about 431 B including the overlay header \| about 0.30 %". |
-| F6 | Wrong (omission) | Table 4.26, Common record header: "Identifier (SHA-384 of the canonical encoding), origin, record sequence number, previous-record hash, window, epoch, type, uniqueness key, supersedes, parents, common-cause tags, policy hash". RSD-CMC-02c: "A record that carries a schema version other than the mission's shall be rejected without forming a proof." | RSD-CMC-02c requires every record to carry a schema version; Table 4.26 does not list it. | Table 4.26: add "schema version" to the common record header (and to the signed bundle header). |
-| F7 | Wrong (omission) | Table 4.26, Digest: "Per origin: highest record sequence and 8-byte chain-head prefix; evidence-set hash; state hash with policy version; nodes heard directly". RSD-EVD-03c: "An agent that observes equal evidence hashes with different state hashes shall log the divergence." with the acceptance "the divergence is logged with both hashes and the window". | The window the digest describes is not listed, but the divergence log needs it, and reception time must not stand in for it (RSD-EVD-03b). | Table 4.26, Digest: add "window". |
-| F8 | Ambiguous | Table 4.26: "Identifier (SHA-384 of the canonical encoding)" listed as a key field. RSD-EVD-02a: "The identifier of a record shall be the SHA-384 hash of the canonical encoding of all its other fields." | Listing the identifier as a field suggests it is transmitted; but it is fully determined by the other fields, and the RSD does not say how a transmitted identifier that does not match the content is classified (malformed, G3 or neither). | Table 4.26: "Identifier (SHA-384 of the canonical encoding of all other fields; derived by the receiver, not transmitted)". |
-| F9 | Ambiguous | RSD-EVD-01c: "a hash of its derived states with the policy version". Table 4.26, Common record header: "policy hash". Section 4.10: "Every decision record carries its evidence identifiers, policy version and open hypotheses". | "Policy version" and "policy hash" are used for what appears to be one identity of the policy set; no version numbering is defined anywhere. | Use one term: "policy hash (SHA-384 of the canonical policy set)" in RSD-EVD-01c, Table 4.26 and Section 4.10. |
-| F10 | Ambiguous | Table 4.26, Common record header: "uniqueness key", "supersedes". | Neither the meaning of the uniqueness key nor the rule tying it to supersedes and to equivocation is defined. | Define the uniqueness key: which fields of each record type it covers, and that two records of one origin with equal type and uniqueness key either supersede or equivocate. |
-| F11 | Ambiguous | Table 4.26, Operator command: "type, target, parameters, issue window, duration, validity, precondition, basis". RSD-HOT-02f: "a precondition from the closed set of predicates over the evidence". | The predicate set, the meaning of "basis" and the parameters of PRIORITY and SUPPORT are not defined, although RSD-HOT-02a requires a closed command schema. | Add the predicate set, the definition of basis and the PRIORITY and SUPPORT parameters to Section 4.8 or Table 4.26. |
-| F12 | Ambiguous | Table 4.26, Group Status Summary: "...vehicles per security state, energy, channels OK per modality, coverage, regime per sector, top backlog items, contacts, alerts, jamming level, commands applied". RSD-HOT-03b: "with a fixed set of fields". | Units and definitions of energy and coverage, the number of backlog items, the contact identifier and the alert codes are not given; a fixed set of fields needs fixed counts. | Define units, list bounds and code sets for these fields. |
-| F13 | Wrong (omission) | Table 4.26 title: "Records and formats relied on by the requirements." | Formats relied on by requirements are missing: the GCS receipt (RSD-HOT-05f, RSD-HOT-05h), the G3 proof encoding (RSD-SEC-01d, RSD-ORG-03d), the hop acknowledgment (RSD-NET-01d). | Add these rows to Table 4.26. |
-| F14 | Outdated | Table 4.30: "Handshakes \| 19 per 600 s \| Hop-session design". "Signature verification \| 4 bundles/s × 0.51 ms ≈ 2 ms per second". | With two quotes, each handshake adds one quote signature and one quote verification per side. The effect is small: 19 × (0.96 + 0.51) ms per 600 s ≈ 0.05 ms per second, but the table does not mention it. | Table 4.30, Handshakes: add "each with one transcript signature, one quote signature and two verifications per side". |
-| F15 | Ambiguous | Table 4.29: "Group Status Summary \| Three components; about 1 kB every 30 s; ... \| ≤ 0.4 % (worst-case estimate)". | With the frozen layout and the proposed list bounds, a summary record of group B is 1 098 B (964 B body + 134 B common header). The table does not say whether 1 kB includes the record header; if it does, the worst case rises to about 0.44 %. | State the summary size as "about 1.1 kB including the record header" and recompute the worst case once the list bounds (F12) are fixed. |
-| F16 | Ambiguous | Table 4.26, HELLO: "Node id, epoch, sequence number, timestamp, HMAC-SHA-384 under the discovery key (truncated to 16 B)". Table 4.26, Overlay frame header: "...sender, ..., 8-byte counter, ..., 16-byte tag". | HELLO is an overlay frame, so node id, sequence number and HMAC can be carried by the header's sender, counter and tag fields. The table lists them as if they were separate. | Table 4.26, HELLO: "overlay frame header (sender = node id, counter = sequence number, tag = HMAC-SHA-384 under the discovery key, truncated to 16 B), epoch, timestamp". |
-| F17 | Ambiguous | Table 4.26: "Handshake HS1 / HS2 / HS3 \| Nonce, ML-KEM encapsulation key or ciphertext, transcript signature, key confirmation, suite id; HS2 and HS3 add the boot quote". | Which fields belong to which message, and which messages carry a transcript signature, is not stated; the size and share of F1 depend on it. | Table 4.26: one row per message, as in Section 4.6 of this document once approved. |
+| F1 | Outdated | Table 4.29: "Hop handshakes \| 190 pairs, about 12.4 kB per handshake, every 600 s \| 0.58 %". RSD-CMC-04a: "In handshake messages HS2 and HS3, each side shall include a quote, signed by its key provider's attestation key, over the boot measurement of the loaded agent image, the build identifier and the session nonce." | 12.4 kB = 1568 + 1568 + 2 × 4627 = 12 390 B (also V13.2 Section 7.3); the two quotes added by RSD-CMC-04a (V13.3 C07) are not counted. Frozen layout: 21 902 B. | "190 pairs, about 21.9 kB per handshake (two boot quotes included), every 600 s \| about 1.03 %"; update the control-plane line and the total. |
+| F2 | Ambiguous | RSD-CMC-04a: "a quote, signed by its key provider's attestation key". RSD-CRY-01b: "Bundles, handshake transcripts, link-state advertisements and every other signed record shall be signed with ML-DSA-87." | No algorithm or size is given for the attestation key, in the RSD or the architecture (V13.3 C07: "a separate attestation key"). | RSD-CMC-04a or Table 2.1: "The attestation key is an ML-DSA-87 key; a quote signature is 4627 B." |
+| F3 | Ambiguous | RSD-NET-01f: "The overlay shall split every message into fragments of at most 1400 bytes, each carrying its own hop or swarm-key tag." Table 4.29: "A 1400-byte fragment takes 1.99 ms." and "5.5 kB; four fragments". | Whether 1400 bytes includes the 52 B overlay header is not stated; with the header included a 5 500 B bundle is five fragments. If 1.99 ms excludes the header, the bundle share rises from 3.13 % to about 3.25 % and pull from 0.63 % to about 0.65 %. | "...into fragments of at most 1400 bytes of message content, each sent in one overlay frame that adds the frame header and its own hop or swarm-key tag." State which headers the 1.99 ms includes. |
+| F4 | Outdated | Table 4.29: "HELLO \| Every 2 s per node; 48 B \| 0.32 %". | With the architecture's 52 B overlay header (V13.2 Table C.3), a 12 B epoch reference and an 8 B timestamp, HELLO is 72 B. | "Every 2 s per node; 72 B \| about 0.48 %". |
+| F5 | Outdated | Table 4.29: "Digests \| Every node every window; about 370 B \| 0.26 %". | Frozen digest for N = 20: 390 B payload, 442 B frame. | "about 442 B including the overlay header \| about 0.31 %". |
+| F6 | Wrong (omission) | Table 4.26, Common record header: "Identifier (SHA-384 of the canonical encoding), origin, record sequence number, previous-record hash, window, epoch, type, uniqueness key, supersedes, parents, common-cause tags, policy hash". RSD-CMC-02c: "A record that carries a schema version other than the mission's shall be rejected without forming a proof." | RSD-CMC-02c needs a schema version on every record; Table 4.26 omits it. The architecture has it: V13.2 Appendix C, formats are "versioned with a one-byte suite and schema identifier". | Add "suite and schema identifier (1 B)" to the common record header and the signed bundle in Table 4.26. |
+| F8 | Ambiguous | Table 4.26: "Identifier (SHA-384 of the canonical encoding)". RSD-EVD-02a: "The identifier of a record shall be the SHA-384 hash of the canonical encoding of all its other fields." | The identifier is fully determined by the other fields; how a transmitted identifier that does not match the content is classified is not stated. | "Identifier (SHA-384 of the canonical encoding of all other fields; derived by the receiver, not transmitted)". |
+| F9 | Ambiguous | RSD-EVD-01c: "a hash of its derived states with the policy version". Table 4.26: "policy hash". Section 4.10: "Every decision record carries its evidence identifiers, policy version and open hypotheses". | Two terms for one identity. The architecture resolves it: the policy set is "identified by its version hash" (V13.2 Section 7.2). | Use "policy version hash" in RSD-EVD-01c, Table 4.26 and Section 4.10. |
+| F11 | Ambiguous | RSD-HOT-02f: "Every RESUME record shall carry a precondition from the closed set of predicates over the evidence and a validity, by default 120 s." Table 4.26, Operator command: "...type, target, parameters...". | The predicate set is defined in no source (RSD, V13.3 Section 11.10, HOTL). The content of the support request that a SUPPORT command creates ("Creates a support request on the operator's behalf with the highest importance class", V13.3 Table 11.12) is not defined either. PRIORITY's parameter and the basis are defined in V13.3 and are no longer part of this finding. | Define the RESUME predicate set and the SUPPORT request content. |
+| F13 | Wrong (omission) | Table 4.26 title: "Records and formats relied on by the requirements." | Formats relied on by requirements are missing from Table 4.26, although defined elsewhere: the proof (V13.2 Table C.4; RSD-SEC-01d, RSD-ORG-03d), the GCS receipt (fields in RSD-HOT-05f), the hop acknowledgment (V13.2 Table C.3; RSD-NET-01d). | Add these rows to Table 4.26. |
+| F14 | Outdated | Table 4.30: "Handshakes \| 19 per 600 s \| Hop-session design". | With quotes, each handshake adds one quote signature and one quote verification per side: 19 × (0.96 + 0.51) ms per 600 s ≈ 0.05 ms per second (calculation). | "each with one transcript signature, one quote signature and two verifications per side". |
+| F15 | Ambiguous | Table 4.29: "Group Status Summary \| Three components; about 1 kB every 30 s; ... \| ≤ 0.4 % (worst-case estimate)". | Frozen layout, group B, proposed bounds: 1 088 B record (957 B body + 131 B header); if 1 kB includes the header, the worst case is about 0.44 %. | "about 1.1 kB including the record header"; recompute once the bounds are approved. |
+| F18 | Ambiguous | RSD-EVD-01a: "...one bundle that carries those records, with the header, the records and their Merkle root under one signature." | Read literally, the signature covers the records' bytes; the architecture's proof (V13.2 Table C.4) carries only "the two conflicting bundle headers with signatures and the Merkle paths", which works only if the signature covers the header and the Merkle root. Signing the root covers the records cryptographically. | "...with the header and the Merkle root of its records under one signature." |
+| F19 | Ambiguous | RSD-CRY-03h: "When two epoch announcements share a parent epoch, every agent shall adopt the announcement of the producer with the smaller rank number and keep the other key for decryption only, for two windows." | Two announcements of the same producer from the same parent are not ordered by this rule, and are not an equivocation under the architecture's key (producer, epoch_id) (Section 3). | Under option E3: add "...; between two announcements of the same producer, the one with the smaller epoch number." Under E2: define the semantic key as (producer, parent epochs). |
+
+### Removed from the findings
+
+| No | Reason |
+|---|---|
+| F7 | Encoding decision, not a finding: same evidence gives the same state (RSD-EVD-03a), so the digest needs no window (Section 4.3, D4). |
+| F10 | Defined in the architecture: V13.2 Section 8.2 and Tables 8.1 and 8.2 (Section 4.1). |
+| F12 | Units and list bounds are encoding decisions (Section 4.13, S3, S17); the alert types are defined in V13.3 Section 11.10. |
+| F16 | Encoding decision: HELLO's node id and sequence number are carried by the header's sender and counter (Section 4.5). |
+| F17 | Defined in the architecture: V13.2 Section 7.3 and V13.3 C07 (Section 4.6). |
+
+## 9. Deliberate departures from the architecture
+
+| No | Architecture | This proposal | Reason |
+|---|---|---|---|
+| D1 | V13.2 Table 8.1 lists "rid" in the common header. | Not transmitted; computed by K13. | It is a function of the other fields; carrying it adds a mismatch case (F8). |
+| D2 | V13.2 Table 8.1 lists "type, ukey" as header fields. | ukey not transmitted; derived from type and payload. | Every ukey of Table 8.2 is made of payload fields; no repetition. |
+| D3 | V13.2 Table C.4: Handshake "... suite id". | Carried by the overlay header's version-and-suite byte. | No repetition; the transcript signature covers the header. |
+| D4 | V13.2 Table 7.4: digest replay protection "Counter and window". | No window in the digest. | Comparison needs no window (RSD-EVD-03a); the swarm-key counter gives replay protection. |
+| D5 | V13.3 Section 11.10: summary lists "open repairs and contracts"; summary "routed as C2 traffic to the command ship". | Left out; copies to each reachable designated gateway. | Not in RSD Table 4.26 (nor in V13.3 Table C.5); RSD-HOT-05a and HL-12 govern routing. |
+| D6 | V13.3 C07 Table 7.5: "Build identifier per group (A, B, C)". | BuildId E, I, R. | RSD-CMC-05. |
+| D7 | V13.3 C10: "RESUME is a HOLD record with duration zero." | RESUME has its own type code and no duration field. | RSD-HOT-02a: five types, RESUME among them; RSD-HOT-02e requires a duration only on HOLD. |
+| D8 | V13.2 Section 7.2: identities travel as 8-byte certificate identifiers. | Sets of roster members (recipient list, nodes heard directly, origin set) are roster bitmaps. | Fixed size and one encoding (K10); the signed roster fixes positions (AS3). Single identities stay 8-byte. |
+| D9 | V13.2 Table C.1: observation position "lat/lon". | Local ENU, i32 cm, for every format. | Integer kinematics without trigonometry (RSD-EVD-03b). Observation records are not in this issue; the choice is recorded here so that they follow it. |
+| D10 | HL-12: the identifier of a record sent to headquarters is "the content hash of the signed bundle". | The basis of a command (and the GCS receipt) names the Group Status Summary's RecordId. | RSD-EVD-02a defines record identifiers; RSD-HOT-05c and RSD-HOT-05f speak of the record. **Needs confirmation (S18).** |
+| D11 | V13.2 Table 8.2: epoch ukey (producer, epoch_id). | Kept under E1/E3; replaced by (producer, parent epochs) only if E2 is chosen. | Section 3, S15. |
+
+Architecture-internal inconsistency noted for the IV-rule issue (RSD-CRY-01g): V13.2 Section 7.3 builds swarm-key IVs from "the 4-byte sender identifier", while the sender identifier on the air is 8 bytes (Table C.3). The mapping is not defined; it does not affect the formats here.
+
