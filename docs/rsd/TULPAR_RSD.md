@@ -1,6 +1,6 @@
 # TULPAR Requirements Specification Document
 
-Version 1.1, 22 November 2026
+Living document, maintained in the project repository (Section 1.5)
 
 # 1 Introduction
 
@@ -146,6 +146,8 @@ A requirement may use more than one method (61 do). Demonstration is not used.
 **Statistical verification.** Experiments use paired random-number streams, 30 repetitions per configuration unless a pilot run shows that more are needed, the Wilcoxon signed-rank test with Holm correction, and 95 % confidence intervals (Section 5.1). Hypotheses and thresholds are registered before the test runs. A hypothesis threshold is not a requirement unless a requirement states it. Parameter values are the initial values of the architecture, and only a pre-registered experiment may change them.
 
 **Status.** Every requirement in Chapter 4 is a CORE baseline requirement. The 39 requirements marked † come only from the HOTL and SATCOM design and are counted in Table 5.4. Optional items and future work appear only in Section 6.6. No requirement is implemented or verified yet.
+
+**Document maintenance.** This document is kept as a single file in the project repository and is changed through pull requests. The copy on the main branch is the only valid version; earlier states in the repository history and copies kept elsewhere are not sources. A copy sent outside the repository is identified by a version tag, and version 1.1 of 22 November 2026 carries the tag rsd-v1.1.
 
 ## 1.6 Terms and abbreviations
 
