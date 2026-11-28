@@ -21,7 +21,7 @@ TULPAR answers both with evidence that every agent evaluates in the same determi
 - A reference scenario demonstrates the architecture: a 30-minute exploration of the waters around Marmara Island by twelve UAVs and seven USVs in three groups. The architecture is not tied to this scenario.
 - Simulation only: no real hardware or radios. Cryptography uses real algorithms through Botan.
 
-The requirements are specified in the [Requirements Specification Document (RSD v1.1)](docs/rsd/TULPAR_RSD_v1.1.md): 59 baseline requirements, decomposed into 308 atomic requirements, each with a verification method and an acceptance criterion.
+The requirements are specified in the [Requirements Specification Document (RSD)](docs/rsd/TULPAR_RSD.md): baseline requirements decomposed into atomic requirements, each with a verification method and an acceptance criterion. The RSD is a living document; its copy on `main` is the only valid version.
 
 ## Architecture
 
@@ -46,13 +46,13 @@ Each module is a separate static build target, so a module can use only what its
 
 | Member | Area |
 |---|---|
-| Özgür Can Güngör | Cryptography and local safety controller |
-| Çağlar Mesci | Simulation infrastructure, scenario controller and SIMDIS viewer; status summaries, backhaul profiles and lost-link rule |
-| Cemre Karabulut | Communication; gateways, receipts and jamming indicator |
-| Berkan Mursal | Observation fusion; distributed security with Berra |
-| Berra Senem Mıynat | Human oversight (operator commands); distributed security with Berkan |
+| Cemre Karabulut | Communication and delivery; jamming indicator, gateways and backhaul |
+| Özgür Can Güngör | Cryptography and the evidence store |
+| Berkan Mursal | Observation fusion and distributed security |
+| Berra Senem Mıynat | Mission management and operator commands |
+| Çağlar Mesci | Local safety controller; simulation infrastructure, SIMDIS viewer, operator console and post-mission analysis |
 
-The evidence store, mission management and most of the common-mode containment area have no owner yet (Jira TULPAR-31).
+Folder ownership and the working rules are in `CLAUDE.md`.
 
 ## Roadmap
 
