@@ -1,0 +1,26 @@
+# Checks that a pull request title starts with its Jira key, as CLAUDE.md
+# requires. Main is merged by squash, so the title becomes the commit on main.
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Title starts with TULPAR-<n>
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          re='^TULPAR-[0-9]+: [^[:space:]]'
+          if [[ "$TITLE" =~ $re ]]; then
+            echo "Title OK: $TITLE"
+          else
+            echo "::error::The pull request title must start with its Jira key, for example 'TULPAR-123: Add beacon jitter'. Title: $TITLE"
+            exit 1
+          fi

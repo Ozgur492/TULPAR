@@ -44,12 +44,14 @@ Every folder has one owner, following the Jira assignments. Work only on issues 
 | `module/test/tulpar-<module>-test-suite.cc` | Owner of the module |
 | `docs/rsd/`, `docs/backlog/`, `docs/g0/`, `CLAUDE.md`, `README.md` | Özgür Can Güngör |
 | `docs/design/` | Özgür Can Güngör (shared); the owners of TULPAR-480 to TULPAR-484 add their message formats |
+| `.github/CODEOWNERS`, `.github/workflows/pr-title.yml`, `tools/deps_rules.json` | Özgür Can Güngör |
 
 - If a change is needed outside the current user's folders, stop and tell the user; the owner makes the change or approves it.
 - In a shared file, add only the current user's own part: the sources of their own target, their own test, their own static check or the wiring of their own module. Changing the shared structure needs the file owner.
 - An interface change (RSD Table 4.25, a type in `module/common/`, a message format) is one pull request, approved by the owners of the producing and the consuming modules; the affected stubs change in the same pull request.
 - Relaxing a rule in `tools/deps_rules.json` is an RSD change (see Changing the RSD).
 - Approvals: none when a pull request touches only the author's folders; the owner for another person's folder or a shared file; both module owners for an interface; Özgür Can Güngör for `docs/rsd/`, `CLAUDE.md`, `docs/design/` and `tools/deps_rules.json`.
+- GitHub enforces these approvals: `.github/CODEOWNERS` mirrors this table, so a pull request asks the owners for review and cannot be merged before they approve. Change the table and `CODEOWNERS` in the same pull request.
 - Never push to `main`, merge a pull request or disable a CI check.
 
 ## Commands
@@ -69,7 +71,7 @@ cd external/ns-3 && ./test.py --no-build -s tulpar-g0
 2. **Before coding.** Read the issue and the RSD text of every requirement it names (search the RSD for the identifier). Move the issue to In Progress.
 3. **Branch and commits.** Branch `TULPAR-<n>-<short-name>`; every commit message starts with the issue key, then an imperative summary (`TULPAR-123: Add beacon jitter`).
 4. **Tests.** Each acceptance criterion becomes an automated check whose name contains the requirement identifier (for example the test case `RSD-SIM-01d same seed gives identical event logs`). Static (S) criteria go into `tools/check_static.py`; run-based criteria go into the ns-3 test suite or `scripts/`.
-5. **Pull request.** Open a pull request to `main` whose title starts with the issue key, and request review from every owner whose approval the Ownership section requires. The user merges it.
+5. **Pull request.** Open a pull request to `main` whose title starts with the issue key, and request review from every owner whose approval the Ownership section requires. The user merges it. `main` is merged by squash, so the title becomes the commit on `main`; the `pr-title` check rejects a title that does not start with the issue key.
 6. **Done.** An issue is done only when its acceptance check passes in CI. Comment on the issue with the commit hash, the check name and, for run-based checks, the run id and seed; then move it to Done. For criteria marked Simulation (M), the implementation issue closes when its deterministic checks pass; the statistical verdict is recorded on the experiment issue (E1-E15).
 7. **Blocked or unclear.** Comment on the issue, state what is missing and stop. Do not invent a requirement, a threshold or a value. If the cause is an error in the RSD, propose the correction (see Changing the RSD). Work found during a task becomes a new issue linked to it.
 
