@@ -7,7 +7,7 @@
 
 | Priority | Source | Use |
 |---|---|---|
-| 1 | RSD v1.1 (`docs/rsd/TULPAR_RSD.md`) | Governs in every case. |
+| 1 | RSD (`docs/rsd/TULPAR_RSD.md`) | Governs in every case. |
 | 2 | HOTL & National SATCOM Final Integration Package, Redundant Gateway Edition | Replaces V13.3 and V13.2 on HOTL and SATCOM topics. Used: HL-11, HL-12, HL-15, HL-38, HL-41, HL-44. |
 | 3 | V13.3 Change Set (frozen) | Changes V13.2. Used: C07 (quotes in HS2 and HS3), C08 (malformed record as M4), C10 (Section 11.10), C19 (Tables C.4 and C.5). |
 | 4 | V13.2 System Architecture | Used: Section 7.2, 7.3, 7.5, 7.7, 8.2; Table 5.2; Tables 7.4, 8.1, 8.2; Appendix C (Tables C.1 to C.5). |
@@ -405,7 +405,7 @@ RSD-CRY-02e: *"The canonical-encoding validator shall be generated from the same
 
 ## 8. RSD findings
 
-Places in RSD v1.1 found wrong, ambiguous or outdated. Each quotes the RSD verbatim, gives the reason and proposes a correction. The RSD stays binding until a new version changes it; the corrections are tracked in TULPAR-479. Numbers are calculations; shares are scaled linearly from the table's own figures, with per-frame overhead not modelled separately.
+Places in RSD v1.1 (tag `rsd-v1.1`) found wrong, ambiguous or outdated. Each quotes the RSD verbatim, gives the reason and proposes a correction. The RSD stays binding until a pull request changes it; the corrections are tracked in TULPAR-479. Numbers are calculations; shares are scaled linearly from the table's own figures, with per-frame overhead not modelled separately.
 
 ### Effect on Table 4.29
 
